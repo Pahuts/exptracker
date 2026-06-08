@@ -1,0 +1,20 @@
+{
+  "name": "expense-tracker",
+  "version": "1.0.0",
+  "description": "House budget expense tracker with CRUD, SQLite persistence, and dashboards.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js",
+    "hash-password": "node scripts/hash-password.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,29 @@
+# Render deployment config (Blueprint).
+# In Render: New + -> Blueprint -> connect this repo. Render reads this file.
+services:
+  - type: web
+    name: expense-tracker
+    runtime: node
+    plan: free
+    # Seed the database (idempotent) then start the server.
+    buildCommand: npm install
+    startCommand: node seed.js && node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data
+      # Generated automatically by Render; keeps cookies valid across restarts.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Set these two in the Render dashboard (do NOT commit real values).
+      # Generate them locally with: npm run hash-password
+      - key: PASSWORD_SALT
+        sync: false
+      - key: PASSWORD_HASH
+        sync: false
+    # Persistent disk so the SQLite database survives restarts/redeploys.
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
