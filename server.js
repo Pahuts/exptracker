@@ -53,6 +53,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const VALID_STATUS = ['Paid', 'Unpaid', 'Planned'];
 
+function scopeFilter(scope, start = 1) {
+  if (scope === 'house') {
+    return { clause: `category NOT LIKE $${start}`, params: ['Wedding:%'] };
+  }
+  if (scope === 'wedding') {
+    return { clause: `category LIKE $${start}`, params: ['Wedding:%'] };
+  }
+  return { clause: '', params: [] };
+}
+
 // Validate and normalise an expense payload coming from the client.
 function parseExpense(body) {
   const errors = [];
@@ -72,128 +82,203 @@ function parseExpense(body) {
 }
 
 // --- READ: list with optional filters --------------------------------------
-app.get('/api/expenses', (req, res) => {
-  const { category, payer, status, year, q, scope } = req.query;
-  const where = [];
-  const params = {};
+app.get('/api/expenses', async (req, res) => {
+  try {
+    const { category, payer, status, year, q, scope } = req.query;
+    const where = [];
+    const params = [];
 
-  if (scope === 'house') where.push("category NOT LIKE 'Wedding:%'");
-  if (scope === 'wedding') where.push("category LIKE 'Wedding:%'");
-  if (category) { where.push('category = @category'); params.category = category; }
-  if (payer) { where.push('payer = @payer'); params.payer = payer; }
-  if (status) { where.push('status = @status'); params.status = status; }
-  if (year) { where.push("strftime('%Y', date) = @year"); params.year = String(year); }
-  if (q) { where.push('(description LIKE @q OR category LIKE @q)'); params.q = `%${q}%`; }
+    const scoped = scopeFilter(scope, params.length + 1);
+    if (scoped.clause) {
+      where.push(scoped.clause);
+      params.push(...scoped.params);
+    }
 
-  const sql =
-    `SELECT * FROM expenses ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY date ASC, id ASC`;
-  res.json(db.prepare(sql).all(params));
+    if (category) {
+      params.push(category);
+      where.push(`category = $${params.length}`);
+    }
+    if (payer) {
+      params.push(payer);
+      where.push(`payer = $${params.length}`);
+    }
+    if (status) {
+      params.push(status);
+      where.push(`status = $${params.length}`);
+    }
+    if (year) {
+      params.push(String(year));
+      where.push(`LEFT(date, 4) = $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      where.push(`(description ILIKE $${params.length} OR category ILIKE $${params.length})`);
+    }
+
+    const sql = `
+      SELECT id, category, payer, description, amount::float, date, status, created_at
+      FROM expenses
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY CASE WHEN date = '' THEN 1 ELSE 0 END, date ASC, id ASC
+    `;
+
+    const rows = (await db.query(sql, params)).rows;
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- READ: single ----------------------------------------------------------
-app.get('/api/expenses/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  res.json(row);
+app.get('/api/expenses/:id', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, category, payer, description, amount::float, date, status, created_at
+       FROM expenses WHERE id = $1`,
+      [req.params.id]
+    );
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: 'Not found' });
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- CREATE ----------------------------------------------------------------
-app.post('/api/expenses', (req, res) => {
+app.post('/api/expenses', async (req, res) => {
   const { value, errors } = parseExpense(req.body);
   if (errors.length) return res.status(400).json({ errors });
 
-  const info = db
-    .prepare(
+  try {
+    const result = await db.query(
       `INSERT INTO expenses (category, payer, description, amount, date, status)
-       VALUES (@category, @payer, @description, @amount, @date, @status)`
-    )
-    .run(value);
-  res.status(201).json(db.prepare('SELECT * FROM expenses WHERE id = ?').get(info.lastInsertRowid));
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, category, payer, description, amount::float, date, status, created_at`,
+      [value.category, value.payer, value.description, value.amount, value.date, value.status]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- UPDATE ----------------------------------------------------------------
-app.put('/api/expenses/:id', (req, res) => {
-  const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Not found' });
-
+app.put('/api/expenses/:id', async (req, res) => {
   const { value, errors } = parseExpense(req.body);
   if (errors.length) return res.status(400).json({ errors });
 
-  db.prepare(
-    `UPDATE expenses
-     SET category = @category, payer = @payer, description = @description,
-         amount = @amount, date = @date, status = @status
-     WHERE id = @id`
-  ).run({ ...value, id: req.params.id });
-  res.json(db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id));
+  try {
+    const result = await db.query(
+      `UPDATE expenses
+       SET category = $1, payer = $2, description = $3, amount = $4, date = $5, status = $6
+       WHERE id = $7
+       RETURNING id, category, payer, description, amount::float, date, status, created_at`,
+      [value.category, value.payer, value.description, value.amount, value.date, value.status, req.params.id]
+    );
+
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- DELETE ----------------------------------------------------------------
-app.delete('/api/expenses/:id', (req, res) => {
-  const info = db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);
-  if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
-  res.status(204).end();
+app.delete('/api/expenses/:id', async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM expenses WHERE id = $1', [req.params.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.status(204).end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- STATS for dashboards --------------------------------------------------
-app.get('/api/stats', (req, res) => {
-  const { scope } = req.query;
-  // Build a scope filter applied to every aggregate so cards + charts match.
-  let scopeClause = '';
-  if (scope === 'house') scopeClause = "category NOT LIKE 'Wedding:%'";
-  if (scope === 'wedding') scopeClause = "category LIKE 'Wedding:%'";
-  const whereScope = scopeClause ? `WHERE ${scopeClause}` : '';
-  const andScope = scopeClause ? `AND ${scopeClause}` : '';
+app.get('/api/stats', async (req, res) => {
+  try {
+    const { scope } = req.query;
+    const scoped = scopeFilter(scope, 1);
+    const whereScope = scoped.clause ? `WHERE ${scoped.clause}` : '';
+    const monthlyScope = scoped.clause ? `AND ${scoped.clause}` : '';
+    const params = scoped.params;
 
-  const totals = db
-    .prepare(
-      `SELECT
-         COUNT(*) AS count,
-         COALESCE(SUM(amount), 0) AS total,
-         COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END), 0) AS paid,
-         COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount ELSE 0 END), 0) AS unpaid,
-         COALESCE(SUM(CASE WHEN status = 'Planned' THEN amount ELSE 0 END), 0) AS planned
-       FROM expenses ${whereScope}`
-    )
-    .get();
+    const totals = (
+      await db.query(
+        `SELECT
+           COUNT(*)::int AS count,
+           COALESCE(SUM(amount), 0)::float AS total,
+           COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END), 0)::float AS paid,
+           COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount ELSE 0 END), 0)::float AS unpaid,
+           COALESCE(SUM(CASE WHEN status = 'Planned' THEN amount ELSE 0 END), 0)::float AS planned
+         FROM expenses ${whereScope}`,
+        params
+      )
+    ).rows[0];
 
-  const byCategory = db
-    .prepare(
-      `SELECT category,
-              COALESCE(SUM(amount), 0) AS total,
-              COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) AS paid,
-              COALESCE(SUM(CASE WHEN status='Unpaid' THEN amount ELSE 0 END),0) AS unpaid,
-              COALESCE(SUM(CASE WHEN status='Planned' THEN amount ELSE 0 END),0) AS planned
-       FROM expenses ${whereScope} GROUP BY category ORDER BY total DESC`
-    )
-    .all();
+    const byCategory = (
+      await db.query(
+        `SELECT
+            category,
+            COALESCE(SUM(amount), 0)::float AS total,
+            COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END), 0)::float AS paid,
+            COALESCE(SUM(CASE WHEN status = 'Unpaid' THEN amount ELSE 0 END), 0)::float AS unpaid,
+            COALESCE(SUM(CASE WHEN status = 'Planned' THEN amount ELSE 0 END), 0)::float AS planned
+         FROM expenses ${whereScope}
+         GROUP BY category
+         ORDER BY total DESC`,
+        params
+      )
+    ).rows;
 
-  const byPayer = db
-    .prepare(
-      `SELECT payer, COALESCE(SUM(amount),0) AS total, COUNT(*) AS count
-       FROM expenses ${whereScope} GROUP BY payer ORDER BY total DESC`
-    )
-    .all();
+    const byPayer = (
+      await db.query(
+        `SELECT payer, COALESCE(SUM(amount), 0)::float AS total, COUNT(*)::int AS count
+         FROM expenses ${whereScope}
+         GROUP BY payer
+         ORDER BY total DESC`,
+        params
+      )
+    ).rows;
 
-  const byStatus = db
-    .prepare(
-      `SELECT status, COALESCE(SUM(amount),0) AS total, COUNT(*) AS count
-       FROM expenses ${whereScope} GROUP BY status`
-    )
-    .all();
+    const byStatus = (
+      await db.query(
+        `SELECT status, COALESCE(SUM(amount), 0)::float AS total, COUNT(*)::int AS count
+         FROM expenses ${whereScope}
+         GROUP BY status`,
+        params
+      )
+    ).rows;
 
-  const monthly = db
-    .prepare(
-      `SELECT strftime('%Y-%m', date) AS month,
-              COALESCE(SUM(amount),0) AS total,
-              COALESCE(SUM(CASE WHEN status='Paid' THEN amount ELSE 0 END),0) AS paid
-       FROM expenses WHERE date <> '' ${andScope} GROUP BY month ORDER BY month ASC`
-    )
-    .all();
+    const monthly = (
+      await db.query(
+        `SELECT
+            LEFT(date, 7) AS month,
+            COALESCE(SUM(amount), 0)::float AS total,
+            COALESCE(SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END), 0)::float AS paid
+         FROM expenses
+         WHERE date <> '' ${monthlyScope}
+         GROUP BY LEFT(date, 7)
+         ORDER BY month ASC`,
+        params
+      )
+    ).rows;
 
-  res.json({ totals, byCategory, byPayer, byStatus, monthly });
+    res.json({ totals, byCategory, byPayer, byStatus, monthly });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Expense Tracker running at http://localhost:${PORT}`);
+async function start() {
+  await db.initDb();
+  app.listen(PORT, () => {
+    console.log(`Expense Tracker running at http://localhost:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error('Failed to start server:', err.message);
+  process.exit(1);
 });

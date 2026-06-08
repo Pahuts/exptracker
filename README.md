@@ -1,11 +1,11 @@
 # House Budget · Expense Tracker
 
 A full-stack expense tracker for the Grand Royale (Malolos, Bulacan) house budget.
-Full CRUD over a persistent SQLite database, plus a dashboard with summary cards and charts.
+Full CRUD over a cloud Postgres database, plus a dashboard with summary cards and charts.
 
 ## Stack
 - **Backend:** Node.js + Express REST API
-- **Database:** SQLite via `better-sqlite3` (file stored in `data/expenses.db`, so data persists)
+- **Database:** PostgreSQL (Neon recommended)
 - **Frontend:** Vanilla HTML/CSS/JS with [Chart.js](https://www.chartjs.org/)
 
 ## Getting started
@@ -17,6 +17,8 @@ npm start        # start the server
 ```
 
 Then open http://localhost:3000
+
+> Requires `DATABASE_URL` (your Neon Postgres connection string).
 
 > Re-seed from scratch (wipes existing rows): `npm run seed -- --force`
 
@@ -40,8 +42,9 @@ Then open http://localhost:3000
 ## Deploying online (Render)
 
 GitHub Pages can't host this app because it needs a running Node server and a
-database. Render runs the Node backend directly with a persistent disk, so it's
-the simplest option. The repo includes a [`render.yaml`](render.yaml) blueprint.
+database. Render runs the Node backend directly, and Neon stores the data in
+the cloud, so you do not need Render paid persistent disk. The repo includes a
+[`render.yaml`](render.yaml) blueprint.
 
 ### 1. Push to GitHub
 ```powershell
@@ -65,18 +68,19 @@ Copy the printed `PASSWORD_SALT` and `PASSWORD_HASH`.
 ### 3. Create the service on Render
 1. Go to [dashboard.render.com](https://dashboard.render.com) → **New +** → **Blueprint**.
 2. Connect your GitHub repo. Render reads `render.yaml` automatically.
-3. When prompted, set the two secret env vars:
+3. When prompted, set env vars:
+   - `DATABASE_URL` — your Neon connection string
    - `PASSWORD_SALT` — from step 2
    - `PASSWORD_HASH` — from step 2
-   - (`SESSION_SECRET` and `DATA_DIR` are configured automatically.)
+   - (`SESSION_SECRET` is generated automatically.)
 4. Click **Apply**. Render builds, seeds the database, and starts the server.
 
 Your site will be live at `https://<your-app>.onrender.com` over HTTPS, protected
 by your password.
 
 > **Note:** Render's free tier sleeps after inactivity, so the first visit after
-> a while may take ~30s to wake up. The 1 GB persistent disk keeps your data
-> across restarts and redeploys.
+> a while may take ~30s to wake up. Data persists in Neon, so it survives
+> restarts/redeploys even on free Render without a disk.
 
 ### Environment variables
 See [`.env.example`](.env.example) for the full list:
@@ -84,10 +88,10 @@ See [`.env.example`](.env.example) for the full list:
 | Variable         | Purpose                                              |
 | ---------------- | ---------------------------------------------------- |
 | `NODE_ENV`       | `production` enables the Secure cookie flag          |
-| `DATA_DIR`       | Path to persistent storage for the DB + cookie secret |
+| `DATABASE_URL`   | Neon/Postgres connection string                      |
 | `SESSION_SECRET` | Signs session cookies (auto-generated on Render)     |
 | `PASSWORD_SALT`  | Salt for the login password hash                     |
 | `PASSWORD_HASH`  | scrypt hash of the login password                    |
 
-Locally, none are required — the app falls back to sane defaults so `npm start` just works.
+Locally, set `DATABASE_URL` before running `npm run seed` or `npm start`.
 

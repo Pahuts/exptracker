@@ -1,7 +1,7 @@
 {
   "name": "expense-tracker",
   "version": "1.0.0",
-  "description": "House budget expense tracker with CRUD, SQLite persistence, and dashboards.",
+  "description": "House and wedding budget tracker with CRUD, Postgres persistence, and dashboards.",
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
@@ -14,7 +14,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
-    "express": "^4.19.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
   }
 }
