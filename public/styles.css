@@ -304,8 +304,7 @@ td.actions { text-align: right; white-space: nowrap; }
 .w-table tbody .w-row:hover { background: #fdf2f8; }
 .w-table .num { text-align: right; }
 
-.w-supplier-name { font-weight: 600; white-space: normal; max-width: 260px; min-width: 160px; }
-.w-date     { font-size: 12px; color: var(--muted); white-space: normal; max-width: 170px; }
+td.w-supplier-name { font-weight: 600; white-space: normal; word-break: break-word; min-width: 160px; max-width: 240px; }
 .w-contract { font-size: 12px; color: var(--muted); }
 
 /* Mini progress bar inline */
@@ -338,12 +337,118 @@ td.actions { text-align: right; white-space: nowrap; }
   cursor: pointer;
   font-size: 11px;
   color: #be185d;
-  padding: 1px 5px;
+  padding: 2px 5px;
   border-radius: 4px;
-  margin-left: 4px;
-  vertical-align: middle;
 }
 .w-expand-btn:hover { background: #fce7f3; }
+
+/* Delete button in row actions */
+.w-row-actions { white-space: nowrap; text-align: right; }
+.w-del-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 13px;
+  opacity: 0.5;
+}
+.w-del-btn:hover { background: #fee2e2; opacity: 1; }
+
+/* Date cell: text + done button side by side */
+td.w-date-cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 130px;
+  white-space: normal;
+}
+.w-pay-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: normal;
+  word-break: break-word;
+  cursor: pointer;
+}
+.w-pay-text:hover .w-cell-val { text-decoration: underline dotted; }
+.w-pay-done-text .w-cell-val { text-decoration: line-through; color: #16a34a; font-weight: 600; }
+.w-done-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 1px 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: 0.15s;
+}
+.w-done-btn:hover { opacity: 1; background: #f0fdf4; }
+.w-done-btn.done { opacity: 1; }
+
+/* Inline edit inputs */
+.w-inline-input {
+  border: 2px solid #be185d;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+}
+.w-inline-num  { width: 110px; text-align: right; }
+.w-inline-textarea { resize: vertical; min-height: 70px; }
+
+/* Notes editable span in detail row */
+.w-notes-editable {
+  display: inline-block;
+  min-width: 200px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.w-notes-editable:hover { background: #fce7f3; }
+.w-notes-editable .w-cell-val:empty::before {
+  content: 'Click to add…';
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Toolbar bar above groups */
+.w-toolbar-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Filter buttons */
+.w-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.w-filter-btn {
+  border: 1px solid #f0e4ef;
+  background: #fff;
+  color: var(--muted);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.w-filter-btn:hover { background: #fce7f3; color: #be185d; border-color: #be185d; }
+.w-filter-btn.active { background: #be185d; color: #fff; border-color: #be185d; }
+
+/* Pink primary button for wedding tab */
+.btn-pink { background: #be185d; border-color: #be185d; color: #fff; }
+.btn-pink:hover { background: #9d174d; }
+
+/* Derived (non-editable) cells */
+.w-derived { opacity: 0.85; }
 
 /* Detail row (payment notes + remarks) */
 .w-detail-row td { padding: 0 !important; border-bottom: 2px solid #fce7f3 !important; }
@@ -368,6 +473,74 @@ td.actions { text-align: right; white-space: nowrap; }
   margin-right: 8px;
   vertical-align: middle;
 }
+
+/* Wedding supplier modal (wider than expense modal) */
+.w-modal { max-width: 620px; overflow-y: auto; max-height: 90vh; }
+.w-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.w-modal-header h2 { margin: 0; font-size: 18px; }
+.w-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* ── Overall Total tab ─────────────────────────────────────────────────── */
+.overall-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 0 24px 40px;
+}
+@media (max-width: 900px) {
+  .overall-breakdown { grid-template-columns: 1fr; }
+}
+.overall-col-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+.overall-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--card);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.overall-table thead th {
+  background: var(--bg-soft);
+  color: #fff;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+}
+.overall-table thead th.num { text-align: right; }
+.overall-table tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.overall-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.overall-table tbody tr:last-child td { border-bottom: none; }
+.overall-total-row td {
+  background: #f8fafc;
+  border-top: 2px solid var(--line);
+}
+
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.w-modal-close:hover { background: #fee2e2; color: #dc2626; }
 
 /* Modal */
 .modal-backdrop {

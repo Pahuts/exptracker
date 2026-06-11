@@ -377,12 +377,17 @@ document.querySelectorAll('.tab').forEach((tab) => {
     tab.classList.add('active');
 
     const isWedding = name === 'wedding';
-    document.getElementById('house-view').classList.toggle('hidden', isWedding);
+    const isOverall = name === 'overall';
+    document.getElementById('house-view').classList.toggle('hidden', isWedding || isOverall);
     document.getElementById('wedding-view').classList.toggle('hidden', !isWedding);
-    document.getElementById('addBtn').classList.toggle('hidden', isWedding);
+    document.getElementById('overall-view').classList.toggle('hidden', !isOverall);
+    document.getElementById('addBtn').classList.toggle('hidden', isWedding || isOverall);
 
     if (isWedding && !weddingLoaded) {
       fetchWeddingSuppliers();
+    }
+    if (isOverall) {
+      fetchOverallStats();
     }
   });
 });
@@ -392,27 +397,98 @@ document.querySelectorAll('.tab').forEach((tab) => {
 // ---------------------------------------------------------------------------
 let weddingData = [];
 
+const W_STATUSES   = ['Booked DP Paid', 'Fully Paid', 'Deciding'];
+const W_CATEGORIES = [
+  'HMUA Bride','HMUA Entourage','Ceremony and Reception','Coordinator',
+  'Videographer','Photographer','Singer','Styling','Cocktail Hour',
+  'Accommodation','Bride Outfit','Groom Outfit','Entourage Outfit',
+  'Gifts/Souvenirs','Wedding Needs',
+];
+
+let weddingStatusFilter = '';
+const openDetailRows = new Set();
+
+// Populate category <select> in the modal once
+W_CATEGORIES.forEach((c) => {
+  document.getElementById('wMCategory').appendChild(new Option(c, c));
+});
+
+// --- API helpers -----------------------------------------------------------
 async function fetchWeddingSuppliers() {
-  const res = await api(`${API}/wedding-suppliers`);
+  const res  = await api(`${API}/wedding-suppliers`);
   weddingData = await res.json();
   weddingLoaded = true;
   renderWeddingView();
 }
 
+async function patchSupplier(id, fields) {
+  const res = await api(`${API}/wedding-suppliers/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Save failed'); }
+  const updated = await res.json();
+  const idx = weddingData.findIndex((s) => s.id === id);
+  if (idx !== -1) weddingData[idx] = updated;
+  return updated;
+}
+
+async function createSupplier(fields) {
+  const res = await api(`${API}/wedding-suppliers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Create failed'); }
+  const created = await res.json();
+  weddingData.push(created);
+  return created;
+}
+
+async function deleteSupplier(id) {
+  await api(`${API}/wedding-suppliers/${id}`, { method: 'DELETE' });
+  weddingData = weddingData.filter((s) => s.id !== id);
+}
+
+// --- Render ----------------------------------------------------------------
 function renderWeddingView() {
+  renderWeddingToolbar();
   renderWeddingSummary();
   renderWeddingGroups();
+}
+
+function renderWeddingToolbar() {
+  const toolbar = document.getElementById('wToolbar');
+  const labels  = { '': 'All', 'Booked DP Paid': 'Booked', 'Fully Paid': 'Fully Paid', 'Deciding': 'Deciding' };
+  toolbar.innerHTML = `
+    <div class="w-filter-bar">
+      ${['', ...W_STATUSES].map((s) => `
+        <button class="w-filter-btn${weddingStatusFilter === s ? ' active' : ''}" data-status="${escapeHtml(s)}">
+          ${escapeHtml(labels[s] || s)}
+        </button>`).join('')}
+    </div>
+    <button class="btn btn-pink" id="wAddBtn">+ Add Supplier</button>`;
+
+  toolbar.querySelectorAll('.w-filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      weddingStatusFilter = btn.dataset.status;
+      renderWeddingToolbar();
+      renderWeddingGroups();
+    });
+  });
+  document.getElementById('wAddBtn').addEventListener('click', () => openWModal(null));
 }
 
 function renderWeddingSummary() {
   const t = weddingData.reduce(
     (a, s) => {
       a.estimated += s.estimated_amount;
-      a.actual += s.actual_amount;
-      a.paid += s.total_paid;
-      a.balance += s.balance;
-      a.gaile += s.gaile_paid;
-      a.nald += s.nald_paid;
+      a.actual    += s.actual_amount;
+      a.paid      += s.total_paid;
+      a.balance   += s.balance;
+      a.gaile     += s.gaile_paid;
+      a.nald      += s.nald_paid;
       return a;
     },
     { estimated: 0, actual: 0, paid: 0, balance: 0, gaile: 0, nald: 0 }
@@ -448,10 +524,13 @@ function renderWeddingSummary() {
 }
 
 function renderWeddingGroups() {
-  // Preserve category order from data
+  const filtered = weddingStatusFilter
+    ? weddingData.filter((s) => s.status === weddingStatusFilter)
+    : weddingData;
+
   const order = [];
   const groups = {};
-  for (const s of weddingData) {
+  for (const s of filtered) {
     if (!groups[s.category]) { groups[s.category] = []; order.push(s.category); }
     groups[s.category].push(s);
   }
@@ -459,8 +538,13 @@ function renderWeddingGroups() {
   const container = document.getElementById('wGroups');
   container.innerHTML = '';
 
+  if (order.length === 0) {
+    container.innerHTML = '<p class="empty">No suppliers match this filter.</p>';
+    return;
+  }
+
   for (const cat of order) {
-    const rows = groups[cat];
+    const rows    = groups[cat];
     const catActual = rows.reduce((a, r) => a + r.actual_amount, 0);
     const catPaid   = rows.reduce((a, r) => a + r.total_paid, 0);
     const catBal    = rows.reduce((a, r) => a + r.balance, 0);
@@ -472,7 +556,7 @@ function renderWeddingGroups() {
       <div class="w-group-header">
         <div class="w-group-title">
           <span class="w-cat-name">${escapeHtml(cat)}</span>
-          <span class="w-cat-count">${rows.length} supplier${rows.length > 1 ? 's' : ''}</span>
+          <span class="w-cat-count">${rows.length} supplier${rows.length !== 1 ? 's' : ''}</span>
         </div>
         <div class="w-group-totals">
           <span>Actual <strong>${peso(catActual)}</strong></span>
@@ -484,74 +568,441 @@ function renderWeddingGroups() {
       <div class="w-progress-bar"><div class="w-progress-fill" style="width:${catPct}%"></div></div>
       <div class="w-table-wrap">
         <table class="w-table">
-          <thead>
-            <tr>
-              <th>Supplier</th>
-              <th class="num">Actual</th>
-              <th class="num">Paid</th>
-              <th class="num">Progress</th>
-              <th class="num">Balance</th>
-              <th>Status</th>
-              <th>Contract</th>
-              <th>First Payment</th>
-              <th>Next Payment</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map((r) => buildSupplierRow(r)).join('')}
-          </tbody>
+          <thead><tr>
+            <th class="w-th-supplier">Supplier</th>
+            <th class="num">Estimated</th>
+            <th class="num">Actual</th>
+            <th class="num">Gaile Paid</th>
+            <th class="num">Nald Paid</th>
+            <th class="num">Total Paid</th>
+            <th class="num">Progress</th>
+            <th class="num">Balance</th>
+            <th>Status</th>
+            <th>Contract</th>
+            <th>First Payment</th>
+            <th>Next Payment</th>
+            <th></th>
+          </tr></thead>
+          <tbody>${rows.map(buildSupplierRow).join('')}</tbody>
         </table>
       </div>`;
     container.appendChild(card);
   }
+
+  // Attach inline-edit handlers
+  container.querySelectorAll('[data-editable]').forEach(attachInlineEdit);
+
+  // Restore open detail rows
+  openDetailRows.forEach((id) => {
+    const dr  = document.getElementById(`wd-${id}`);
+    const btn = document.querySelector(`.w-expand-btn[data-id="${id}"]`);
+    if (dr)  dr.classList.remove('hidden');
+    if (btn) btn.textContent = '▴';
+  });
 }
 
+// --- Build one supplier row -----------------------------------------------
 function buildSupplierRow(s) {
-  const pct = s.actual_amount > 0 ? Math.round((s.total_paid / s.actual_amount) * 100) : 0;
+  const pct = s.actual_amount > 0 ? Math.min(100, Math.round((s.total_paid / s.actual_amount) * 100)) : 0;
   const statusClass =
-    s.status === 'Fully Paid'      ? 'ws-fully-paid' :
-    s.status === 'Booked DP Paid'  ? 'ws-booked'     : 'ws-deciding';
-  const hasDetails = s.payment_notes || s.remarks;
+    s.status === 'Fully Paid'     ? 'ws-fully-paid' :
+    s.status === 'Booked DP Paid' ? 'ws-booked'     : 'ws-deciding';
+
+  // helper for editable cells
+  const ed = (field, type, display) =>
+    `<span class="w-cell-val">${display}</span>`;
 
   return `
-    <tr class="w-row">
-      <td class="w-supplier-name">
-        ${escapeHtml(s.supplier_name)}
-        ${hasDetails ? `<button class="w-expand-btn" data-id="${s.id}" title="Show notes/remarks">▾</button>` : ''}
+    <tr class="w-row" data-sid="${s.id}">
+      <td class="w-supplier-name" data-editable data-sid="${s.id}" data-field="supplier_name" data-type="text" title="Click to edit">
+        ${ed('supplier_name','text', escapeHtml(s.supplier_name))}
       </td>
-      <td class="num">${s.actual_amount > 0 ? peso(s.actual_amount) : '—'}</td>
-      <td class="num">${s.total_paid > 0 ? peso(s.total_paid) : '—'}</td>
-      <td class="num">
+      <td class="num" data-editable data-sid="${s.id}" data-field="estimated_amount" data-type="number" title="Click to edit">
+        ${ed('estimated_amount','number', peso(s.estimated_amount))}
+      </td>
+      <td class="num" data-editable data-sid="${s.id}" data-field="actual_amount" data-type="number" title="Click to edit">
+        ${ed('actual_amount','number', peso(s.actual_amount))}
+      </td>
+      <td class="num" data-editable data-sid="${s.id}" data-field="gaile_paid" data-type="number" title="Click to edit">
+        ${ed('gaile_paid','number', peso(s.gaile_paid))}
+      </td>
+      <td class="num" data-editable data-sid="${s.id}" data-field="nald_paid" data-type="number" title="Click to edit">
+        ${ed('nald_paid','number', peso(s.nald_paid))}
+      </td>
+      <td class="num w-derived">${peso(s.total_paid)}</td>
+      <td class="num w-derived">
         <div class="w-mini-bar-wrap">
           <div class="w-mini-bar"><div class="w-mini-fill" style="width:${pct}%"></div></div>
           <span class="w-mini-pct">${pct}%</span>
         </div>
       </td>
       <td class="num ${s.balance > 0 ? 'w-bal-due' : 'w-bal-ok'}">${s.balance > 0 ? peso(s.balance) : '✓'}</td>
-      <td><span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span></td>
-      <td class="w-contract">${escapeHtml(s.contract_sent) || '—'}</td>
-      <td class="w-date">${escapeHtml(s.first_payment) || '—'}</td>
-      <td class="w-date">${escapeHtml(s.next_payment) || '—'}</td>
+      <td data-editable data-sid="${s.id}" data-field="status" data-type="select" title="Click to edit">
+        ${ed('status','select', `<span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span>`)}
+      </td>
+      <td class="w-contract" data-editable data-sid="${s.id}" data-field="contract_sent" data-type="text" title="Click to edit">
+        ${ed('contract_sent','text', escapeHtml(s.contract_sent) || '—')}
+      </td>
+      <td class="w-date-cell">
+        <span class="w-pay-text${s.first_payment_done ? ' w-pay-done-text' : ''}"
+              data-editable data-sid="${s.id}" data-field="first_payment" data-type="text" title="Click to edit">
+          ${ed('first_payment','text', escapeHtml(s.first_payment) || '—')}
+        </span>
+        <button class="w-done-btn${s.first_payment_done ? ' done' : ''}"
+                data-sid="${s.id}" data-field="first_payment_done"
+                title="${s.first_payment_done ? 'Unmark' : 'Mark as done'}">
+          ${s.first_payment_done ? '✅' : '○'}
+        </button>
+      </td>
+      <td class="w-date-cell">
+        <span class="w-pay-text${s.next_payment_done ? ' w-pay-done-text' : ''}"
+              data-editable data-sid="${s.id}" data-field="next_payment" data-type="text" title="Click to edit">
+          ${ed('next_payment','text', escapeHtml(s.next_payment) || '—')}
+        </span>
+        <button class="w-done-btn${s.next_payment_done ? ' done' : ''}"
+                data-sid="${s.id}" data-field="next_payment_done"
+                title="${s.next_payment_done ? 'Unmark' : 'Mark as done'}">
+          ${s.next_payment_done ? '✅' : '○'}
+        </button>
+      </td>
+      <td class="w-row-actions">
+        <button class="w-expand-btn" data-id="${s.id}" title="Payment notes / Remarks">▾</button>
+        <button class="w-del-btn" data-sid="${s.id}" title="Delete supplier">🗑️</button>
+      </td>
     </tr>
-    ${hasDetails ? `
     <tr class="w-detail-row hidden" id="wd-${s.id}">
-      <td colspan="9">
+      <td colspan="13">
         <div class="w-detail-inner">
-          ${s.payment_notes ? `<div class="w-detail-item"><span class="w-detail-label">Payment Notes</span>${escapeHtml(s.payment_notes)}</div>` : ''}
-          ${s.remarks      ? `<div class="w-detail-item"><span class="w-detail-label">Remarks</span>${escapeHtml(s.remarks)}</div>` : ''}
+          <div class="w-detail-item">
+            <span class="w-detail-label">Payment Notes</span>
+            <span class="w-notes-editable" data-editable data-sid="${s.id}" data-field="payment_notes" data-type="textarea" title="Click to edit">
+              <span class="w-cell-val">${escapeHtml(s.payment_notes)}</span>
+            </span>
+          </div>
+          <div class="w-detail-item">
+            <span class="w-detail-label">Remarks</span>
+            <span class="w-notes-editable" data-editable data-sid="${s.id}" data-field="remarks" data-type="textarea" title="Click to edit">
+              <span class="w-cell-val">${escapeHtml(s.remarks)}</span>
+            </span>
+          </div>
         </div>
       </td>
-    </tr>` : ''}`;
+    </tr>`;
 }
 
-document.getElementById('wGroups').addEventListener('click', (e) => {
-  const btn = e.target.closest('.w-expand-btn');
-  if (!btn) return;
-  const detail = document.getElementById(`wd-${btn.dataset.id}`);
-  if (!detail) return;
-  const open = !detail.classList.contains('hidden');
-  detail.classList.toggle('hidden', open);
-  btn.textContent = open ? '▾' : '▴';
+// --- Inline edit handler --------------------------------------------------
+function attachInlineEdit(el) {
+  const sid   = parseInt(el.dataset.sid, 10);
+  const field = el.dataset.field;
+  const type  = el.dataset.type;
+
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (el.querySelector('input,select,textarea')) return;
+
+    const supplier = weddingData.find((s) => s.id === sid);
+    if (!supplier) return;
+    const currentVal = supplier[field];
+
+    let input;
+    if (type === 'select') {
+      input = document.createElement('select');
+      input.className = 'w-inline-input';
+      W_STATUSES.forEach((st) => {
+        const opt = new Option(st, st);
+        if (st === currentVal) opt.selected = true;
+        input.appendChild(opt);
+      });
+    } else if (type === 'textarea') {
+      input = document.createElement('textarea');
+      input.className = 'w-inline-input w-inline-textarea';
+      input.value = currentVal || '';
+      input.rows = 4;
+    } else if (type === 'number') {
+      input = document.createElement('input');
+      input.type = 'number'; input.step = '0.01'; input.min = '0';
+      input.className = 'w-inline-input w-inline-num';
+      input.value = currentVal != null ? currentVal : 0;
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'w-inline-input';
+      input.value = currentVal || '';
+    }
+
+    const valSpan = el.querySelector('.w-cell-val');
+    if (valSpan) valSpan.style.display = 'none';
+    el.appendChild(input);
+    input.focus();
+    if (type !== 'textarea') input.select?.();
+
+    let saved = false;
+    const save = async () => {
+      if (saved) return;
+      saved = true;
+      const raw = type === 'number' ? (parseFloat(input.value) || 0) : input.value.trim();
+      // No-op check (coerce both to same type for comparison)
+      if (String(raw) === String(currentVal ?? '')) {
+        if (valSpan) valSpan.style.display = '';
+        input.remove();
+        return;
+      }
+      try {
+        await patchSupplier(sid, { [field]: raw });
+        renderWeddingSummary();
+        renderWeddingGroups();
+      } catch (err) {
+        console.error('Save failed:', err.message);
+        if (valSpan) valSpan.style.display = '';
+        input.remove();
+      }
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && type !== 'textarea') { ev.preventDefault(); input.blur(); }
+      if (ev.key === 'Escape') { saved = true; if (valSpan) valSpan.style.display = ''; input.remove(); }
+    });
+  });
+}
+
+// --- Event delegation on #wGroups -----------------------------------------
+document.getElementById('wGroups').addEventListener('click', async (e) => {
+  // Payment done toggle
+  const doneBtn = e.target.closest('.w-done-btn');
+  if (doneBtn) {
+    const sid   = parseInt(doneBtn.dataset.sid, 10);
+    const field = doneBtn.dataset.field;
+    const supplier = weddingData.find((s) => s.id === sid);
+    if (!supplier) return;
+    try {
+      await patchSupplier(sid, { [field]: !supplier[field] });
+      renderWeddingGroups();
+    } catch (err) { console.error(err); }
+    return;
+  }
+
+  // Expand/collapse notes
+  const expandBtn = e.target.closest('.w-expand-btn');
+  if (expandBtn) {
+    const id = parseInt(expandBtn.dataset.id, 10);
+    const detail = document.getElementById(`wd-${id}`);
+    if (!detail) return;
+    const isOpen = !detail.classList.contains('hidden');
+    detail.classList.toggle('hidden', isOpen);
+    expandBtn.textContent = isOpen ? '▾' : '▴';
+    if (isOpen) openDetailRows.delete(id); else openDetailRows.add(id);
+    return;
+  }
+
+  // Delete supplier
+  const delBtn = e.target.closest('.w-del-btn');
+  if (delBtn) {
+    if (!confirm('Delete this supplier?')) return;
+    const sid = parseInt(delBtn.dataset.sid, 10);
+    try {
+      await deleteSupplier(sid);
+      openDetailRows.delete(sid);
+      renderWeddingSummary();
+      renderWeddingGroups();
+    } catch (err) { console.error(err); }
+  }
 });
 
+// --- Add Supplier Modal ---------------------------------------------------
+const wModal     = document.getElementById('wModal');
+const wModalForm = document.getElementById('wModalForm');
+
+function openWModal(supplier) {
+  document.getElementById('wModalTitle').textContent   = supplier ? 'Edit Supplier' : 'Add Supplier';
+  document.getElementById('wMId').value                = supplier?.id ?? '';
+  document.getElementById('wMCategory').value          = supplier?.category ?? '';
+  document.getElementById('wMSupplier').value          = supplier?.supplier_name ?? '';
+  document.getElementById('wMStatus').value            = supplier?.status ?? 'Deciding';
+  document.getElementById('wMEstimated').value         = supplier?.estimated_amount ?? 0;
+  document.getElementById('wMActual').value            = supplier?.actual_amount ?? 0;
+  document.getElementById('wMGaile').value             = supplier?.gaile_paid ?? 0;
+  document.getElementById('wMNald').value              = supplier?.nald_paid ?? 0;
+  document.getElementById('wMContract').value          = supplier?.contract_sent ?? '';
+  document.getElementById('wMFirstPay').value          = supplier?.first_payment ?? '';
+  document.getElementById('wMNextPay').value           = supplier?.next_payment ?? '';
+  document.getElementById('wMPayNotes').value          = supplier?.payment_notes ?? '';
+  document.getElementById('wMRemarks').value           = supplier?.remarks ?? '';
+  document.getElementById('wModalError').classList.add('hidden');
+  wModal.classList.remove('hidden');
+}
+
+function closeWModal() { wModal.classList.add('hidden'); }
+
+document.getElementById('wModalClose').addEventListener('click', closeWModal);
+document.getElementById('wModalCancel').addEventListener('click', closeWModal);
+wModal.addEventListener('click', (e) => { if (e.target === wModal) closeWModal(); });
+
+wModalForm.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const id = document.getElementById('wMId').value;
+  const fields = {
+    category:         document.getElementById('wMCategory').value.trim(),
+    supplier_name:    document.getElementById('wMSupplier').value.trim(),
+    status:           document.getElementById('wMStatus').value,
+    estimated_amount: parseFloat(document.getElementById('wMEstimated').value) || 0,
+    actual_amount:    parseFloat(document.getElementById('wMActual').value) || 0,
+    gaile_paid:       parseFloat(document.getElementById('wMGaile').value) || 0,
+    nald_paid:        parseFloat(document.getElementById('wMNald').value) || 0,
+    contract_sent:    document.getElementById('wMContract').value.trim(),
+    first_payment:    document.getElementById('wMFirstPay').value.trim(),
+    next_payment:     document.getElementById('wMNextPay').value.trim(),
+    payment_notes:    document.getElementById('wMPayNotes').value.trim(),
+    remarks:          document.getElementById('wMRemarks').value.trim(),
+  };
+  const errEl = document.getElementById('wModalError');
+  try {
+    if (id) { await patchSupplier(parseInt(id, 10), fields); }
+    else    { await createSupplier(fields); }
+    closeWModal();
+    renderWeddingSummary();
+    renderWeddingGroups();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Overall Total
+// ---------------------------------------------------------------------------
+async function fetchOverallStats() {
+  // House stats (all scopes)
+  const [statsRes, weddingRes] = await Promise.all([
+    api(`${API}/stats`),
+    weddingLoaded ? Promise.resolve(null) : api(`${API}/wedding-suppliers`),
+  ]);
+  const houseStats = await statsRes.json();
+  if (weddingRes) {
+    weddingData = await weddingRes.json();
+    weddingLoaded = true;
+  }
+  renderOverallView(houseStats);
+}
+
+function renderOverallView(houseStats) {
+  const h = houseStats.totals;
+
+  const wTotals = weddingData.reduce(
+    (a, s) => {
+      a.estimated += s.estimated_amount;
+      a.actual    += s.actual_amount;
+      a.paid      += s.total_paid;
+      a.balance   += s.balance;
+      a.gaile     += s.gaile_paid;
+      a.nald      += s.nald_paid;
+      return a;
+    },
+    { estimated: 0, actual: 0, paid: 0, balance: 0, gaile: 0, nald: 0 }
+  );
+
+  const grandTotal  = h.total + wTotals.actual;
+  const grandPaid   = h.paid  + wTotals.paid;
+  const grandUnpaid = h.unpaid + wTotals.balance;
+  const grandGaile  = (houseStats.byPayer.find((p) => p.payer === 'Gaile')?.total ?? 0) + wTotals.gaile;
+  const grandNald   = (houseStats.byPayer.find((p) => p.payer === 'Nald')?.total ?? 0)  + wTotals.nald;
+  const obligated   = grandPaid + grandUnpaid;
+  const pct         = obligated ? Math.round((grandPaid / obligated) * 100) : 0;
+
+  document.getElementById('overallCards').innerHTML = `
+    <div class="card">
+      <div class="label">Grand Total</div>
+      <div class="value">${peso(grandTotal)}</div>
+      <div class="sub">House + Wedding</div>
+    </div>
+    <div class="card paid">
+      <div class="label">Total Paid</div>
+      <div class="value">${peso(grandPaid)}</div>
+      <div class="sub">${pct}% of dues</div>
+    </div>
+    <div class="card unpaid">
+      <div class="label">Outstanding</div>
+      <div class="value">${peso(grandUnpaid)}</div>
+      <div class="sub">Unpaid + Wedding balance</div>
+    </div>
+    <div class="card planned">
+      <div class="label">Planned</div>
+      <div class="value">${peso(h.planned)}</div>
+      <div class="sub">House planned expenses</div>
+    </div>
+    <div class="card">
+      <div class="label">Gaile Total</div>
+      <div class="value">${peso(grandGaile)}</div>
+      <div class="sub">Across both trackers</div>
+    </div>
+    <div class="card">
+      <div class="label">Nald Total</div>
+      <div class="value">${peso(grandNald)}</div>
+      <div class="sub">Across both trackers</div>
+    </div>`;
+
+  // House breakdown by category
+  const houseCats = houseStats.byCategory.slice().sort((a, b) => b.total - a.total);
+  document.getElementById('overallHouseDetail').innerHTML = `
+    <table class="overall-table">
+      <thead><tr>
+        <th>Category</th>
+        <th class="num">Total</th>
+        <th class="num">Paid</th>
+        <th class="num">Unpaid</th>
+      </tr></thead>
+      <tbody>
+        ${houseCats.map((c) => `
+          <tr>
+            <td><span class="tag">${escapeHtml(c.category)}</span></td>
+            <td class="num">${peso(c.total)}</td>
+            <td class="num">${peso(c.paid)}</td>
+            <td class="num">${peso(c.unpaid)}</td>
+          </tr>`).join('')}
+        <tr class="overall-total-row">
+          <td><strong>Total</strong></td>
+          <td class="num"><strong>${peso(h.total)}</strong></td>
+          <td class="num"><strong>${peso(h.paid)}</strong></td>
+          <td class="num"><strong>${peso(h.unpaid)}</strong></td>
+        </tr>
+      </tbody>
+    </table>`;
+
+  // Wedding breakdown by category
+  const wCatMap = {};
+  for (const s of weddingData) {
+    if (!wCatMap[s.category]) wCatMap[s.category] = { actual: 0, paid: 0, balance: 0 };
+    wCatMap[s.category].actual  += s.actual_amount;
+    wCatMap[s.category].paid    += s.total_paid;
+    wCatMap[s.category].balance += s.balance;
+  }
+  const wCats = Object.entries(wCatMap).sort((a, b) => b[1].actual - a[1].actual);
+  document.getElementById('overallWeddingDetail').innerHTML = `
+    <table class="overall-table">
+      <thead><tr>
+        <th>Category</th>
+        <th class="num">Actual</th>
+        <th class="num">Paid</th>
+        <th class="num">Balance</th>
+      </tr></thead>
+      <tbody>
+        ${wCats.map(([cat, t]) => `
+          <tr>
+            <td><span class="tag">${escapeHtml(cat)}</span></td>
+            <td class="num">${peso(t.actual)}</td>
+            <td class="num">${peso(t.paid)}</td>
+            <td class="num">${t.balance > 0 ? peso(t.balance) : '<span class="badge paid">✓</span>'}</td>
+          </tr>`).join('')}
+        <tr class="overall-total-row">
+          <td><strong>Total</strong></td>
+          <td class="num"><strong>${peso(wTotals.actual)}</strong></td>
+          <td class="num"><strong>${peso(wTotals.paid)}</strong></td>
+          <td class="num"><strong>${wTotals.balance > 0 ? peso(wTotals.balance) : '<span class="badge paid">✓</span>'}</strong></td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
 refresh();
+

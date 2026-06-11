@@ -27,6 +27,7 @@
     <nav class="tab-bar">
       <button class="tab active" data-tab="house">🏠 House Expenses</button>
       <button class="tab" data-tab="wedding">💍 Wedding Suppliers</button>
+      <button class="tab" data-tab="overall">📊 Overall Total</button>
     </nav>
 
     <!-- Hidden scope input: always 'house' since wedding is a separate tab -->
@@ -104,8 +105,24 @@
     <!-- ══ WEDDING VIEW ════════════════════════════════════════════════════ -->
     <div id="wedding-view" class="hidden">
       <section class="w-summary" id="wSummary"></section>
+      <div class="w-toolbar-bar" id="wToolbar"></div>
       <div class="w-groups" id="wGroups"></div>
     </div><!-- /#wedding-view -->
+
+    <!-- ══ OVERALL VIEW ════════════════════════════════════════════════════ -->
+    <div id="overall-view" class="hidden">
+      <section class="cards" id="overallCards"></section>
+      <section class="overall-breakdown">
+        <div class="overall-col">
+          <h3 class="overall-col-title">🏠 House Expenses</h3>
+          <div id="overallHouseDetail"></div>
+        </div>
+        <div class="overall-col">
+          <h3 class="overall-col-title">💍 Wedding Suppliers</h3>
+          <div id="overallWeddingDetail"></div>
+        </div>
+      </section>
+    </div><!-- /#overall-view -->
 
   </main>
 
@@ -156,6 +173,57 @@
         <div class="modal-actions">
           <button type="button" class="btn" id="cancelBtn">Cancel</button>
           <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Wedding Supplier Modal -->
+  <div class="modal-backdrop hidden" id="wModal">
+    <div class="modal w-modal">
+      <div class="w-modal-header">
+        <h2 id="wModalTitle">Add Supplier</h2>
+        <button class="w-modal-close" id="wModalClose" type="button">×</button>
+      </div>
+      <form id="wModalForm">
+        <input type="hidden" id="wMId" />
+        <div class="row">
+          <label>
+            Category
+            <select id="wMCategory"><option value="">-- Select --</option></select>
+          </label>
+          <label>
+            Status
+            <select id="wMStatus">
+              <option>Booked DP Paid</option>
+              <option>Fully Paid</option>
+              <option selected>Deciding</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Supplier Name *
+          <input id="wMSupplier" required placeholder="e.g. Farm Hills Garden" />
+        </label>
+        <div class="row">
+          <label>Estimated (₱)<input id="wMEstimated" type="number" step="0.01" min="0" value="0" /></label>
+          <label>Actual (₱)<input id="wMActual" type="number" step="0.01" min="0" value="0" /></label>
+        </div>
+        <div class="row">
+          <label>Gaile Paid (₱)<input id="wMGaile" type="number" step="0.01" min="0" value="0" /></label>
+          <label>Nald Paid (₱)<input id="wMNald" type="number" step="0.01" min="0" value="0" /></label>
+        </div>
+        <div class="row">
+          <label>Contract Sent<input id="wMContract" placeholder="Email / Yes / NA" /></label>
+          <label>First Payment<input id="wMFirstPay" placeholder="e.g. April 17, 2025" /></label>
+        </div>
+        <label>Next Payment<input id="wMNextPay" placeholder="e.g. March 14, 2027" /></label>
+        <label>Payment Notes<textarea id="wMPayNotes" rows="3" placeholder="Payment schedule details…"></textarea></label>
+        <label>Remarks<textarea id="wMRemarks" rows="3" placeholder="Additional notes…"></textarea></label>
+        <p class="form-error hidden" id="wModalError"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="wModalCancel">Cancel</button>
+          <button type="submit" class="btn btn-pink">Save Supplier</button>
         </div>
       </form>
     </div>
