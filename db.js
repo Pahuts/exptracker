@@ -78,6 +78,10 @@ async function initDb() {
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  // Idempotent column additions (safe on re-deploy)
+  await query(`ALTER TABLE wedding_suppliers ADD COLUMN IF NOT EXISTS first_payment_done  BOOLEAN NOT NULL DEFAULT FALSE`);
+  await query(`ALTER TABLE wedding_suppliers ADD COLUMN IF NOT EXISTS next_payment_done   BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
 module.exports = {
