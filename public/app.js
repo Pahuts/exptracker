@@ -634,6 +634,12 @@ function buildSupplierRow(s) {
                   title="${s.next_payment_done ? 'Unmark' : 'Mark as done'}"></button>
           <span class="w-pay-text${s.next_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.next_payment)}</span>
         </div>` : ''}
+        ${s.third_payment ? `<div class="w-pay-entry">
+          <button class="w-done-btn${s.third_payment_done ? ' done' : ''}"
+                  data-sid="${s.id}" data-field="third_payment_done"
+                  title="${s.third_payment_done ? 'Unmark' : 'Mark as done'}"></button>
+          <span class="w-pay-text${s.third_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.third_payment)}</span>
+        </div>` : ''}
       </td>
       <td class="w-row-actions">
         <button class="w-edit-btn" data-edit-sid="${s.id}" title="Edit supplier">✏️</button>
@@ -726,6 +732,7 @@ function openWModal(supplier) {
   document.getElementById('wMContract').value          = supplier?.contract_sent ?? '';
   document.getElementById('wMFirstPay').value          = supplier?.first_payment ?? '';
   document.getElementById('wMNextPay').value           = supplier?.next_payment ?? '';
+  document.getElementById('wMThirdPay').value          = supplier?.third_payment ?? '';
   document.getElementById('wMPayNotes').value          = supplier?.payment_notes ?? '';
   document.getElementById('wMRemarks').value           = supplier?.remarks ?? '';
   document.getElementById('wModalError').classList.add('hidden');
@@ -752,6 +759,7 @@ wModalForm.addEventListener('submit', async (ev) => {
     contract_sent:    document.getElementById('wMContract').value.trim(),
     first_payment:    document.getElementById('wMFirstPay').value.trim(),
     next_payment:     document.getElementById('wMNextPay').value.trim(),
+    third_payment:    document.getElementById('wMThirdPay').value.trim(),
     payment_notes:    document.getElementById('wMPayNotes').value.trim(),
     remarks:          document.getElementById('wMRemarks').value.trim(),
   };

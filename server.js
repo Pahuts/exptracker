@@ -200,8 +200,8 @@ const WS_RETURNING = `
   RETURNING id, category, supplier_name,
     estimated_amount::float, actual_amount::float,
     total_paid::float, gaile_paid::float, nald_paid::float, balance::float,
-    first_payment, next_payment, payment_notes, status, contract_sent, remarks,
-    first_payment_done, next_payment_done`;
+    first_payment, next_payment, third_payment, payment_notes, status, contract_sent, remarks,
+    first_payment_done, next_payment_done, third_payment_done`;
 
 function computeWS(merged) {
   const gaile  = parseFloat(merged.gaile_paid)  || 0;
@@ -218,9 +218,9 @@ app.get('/api/wedding-suppliers', async (req, res) => {
       `SELECT id, category, supplier_name,
               estimated_amount::float, actual_amount::float,
               total_paid::float, gaile_paid::float, nald_paid::float,
-              balance::float, first_payment, next_payment,
+              balance::float, first_payment, next_payment, third_payment,
               payment_notes, status, contract_sent, remarks,
-              first_payment_done, next_payment_done
+              first_payment_done, next_payment_done, third_payment_done
        FROM wedding_suppliers
        ORDER BY id ASC`
     );
@@ -240,9 +240,9 @@ app.patch('/api/wedding-suppliers/:id', async (req, res) => {
     const merged = { ...current };
     const editable = [
       'category','supplier_name','estimated_amount','actual_amount',
-      'gaile_paid','nald_paid','first_payment','next_payment',
+      'gaile_paid','nald_paid','first_payment','next_payment','third_payment',
       'payment_notes','status','contract_sent','remarks',
-      'first_payment_done','next_payment_done',
+      'first_payment_done','next_payment_done','third_payment_done',
     ];
     for (const f of editable) {
       if (req.body[f] !== undefined) merged[f] = req.body[f];
@@ -253,13 +253,13 @@ app.patch('/api/wedding-suppliers/:id', async (req, res) => {
       UPDATE wedding_suppliers SET
         category=$1, supplier_name=$2, estimated_amount=$3, actual_amount=$4,
         total_paid=$5, gaile_paid=$6, nald_paid=$7, balance=$8,
-        first_payment=$9, next_payment=$10, payment_notes=$11, status=$12,
-        contract_sent=$13, remarks=$14, first_payment_done=$15, next_payment_done=$16
-      WHERE id=$17 ${WS_RETURNING}`,
+        first_payment=$9, next_payment=$10, third_payment=$11, payment_notes=$12, status=$13,
+        contract_sent=$14, remarks=$15, first_payment_done=$16, next_payment_done=$17, third_payment_done=$18
+      WHERE id=$19 ${WS_RETURNING}`,
       [merged.category, merged.supplier_name, merged.estimated_amount, merged.actual_amount,
        merged.total_paid, merged.gaile_paid, merged.nald_paid, merged.balance,
-       merged.first_payment, merged.next_payment, merged.payment_notes, merged.status,
-       merged.contract_sent, merged.remarks, merged.first_payment_done, merged.next_payment_done,
+       merged.first_payment, merged.next_payment, merged.third_payment, merged.payment_notes, merged.status,
+       merged.contract_sent, merged.remarks, merged.first_payment_done, merged.next_payment_done, merged.third_payment_done,
        req.params.id]
     );
     res.json(result.rows[0]);
@@ -280,12 +280,12 @@ app.post('/api/wedding-suppliers', async (req, res) => {
       INSERT INTO wedding_suppliers
         (category, supplier_name, estimated_amount, actual_amount,
          total_paid, gaile_paid, nald_paid, balance,
-         first_payment, next_payment, payment_notes, status, contract_sent, remarks)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         first_payment, next_payment, third_payment, payment_notes, status, contract_sent, remarks)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       ${WS_RETURNING}`,
       [b.category||'', b.supplier_name||'', parseFloat(b.estimated_amount)||0, m.actual_amount,
        m.total_paid, m.gaile_paid, m.nald_paid, m.balance,
-       b.first_payment||'', b.next_payment||'', b.payment_notes||'',
+       b.first_payment||'', b.next_payment||'', b.third_payment||'', b.payment_notes||'',
        b.status||'Deciding', b.contract_sent||'', b.remarks||'']
     );
     res.status(201).json(result.rows[0]);

@@ -82,6 +82,8 @@ async function initDb() {
   // Idempotent column additions (safe on re-deploy)
   await query(`ALTER TABLE wedding_suppliers ADD COLUMN IF NOT EXISTS first_payment_done  BOOLEAN NOT NULL DEFAULT FALSE`);
   await query(`ALTER TABLE wedding_suppliers ADD COLUMN IF NOT EXISTS next_payment_done   BOOLEAN NOT NULL DEFAULT FALSE`);
+  await query(`ALTER TABLE wedding_suppliers ADD COLUMN IF NOT EXISTS third_payment       TEXT    NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE wedding_suppliers ADD COLUMN IF NOT EXISTS third_payment_done  BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
 module.exports = {
