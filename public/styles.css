@@ -365,67 +365,43 @@ td.w-supplier-name { font-weight: 600; white-space: normal; word-break: break-wo
 }
 .w-del-btn:hover { background: #fee2e2; opacity: 1; }
 
-/* Date cell: text + done button side by side */
-td.w-date-cell {
+/* Payments cell: stacked entries */
+.w-payment-cell {
+  min-width: 140px;
+  padding: 6px 10px;
+}
+.w-pay-entry {
   display: flex;
   align-items: center;
-  gap: 5px;
-  min-width: 130px;
-  white-space: normal;
+  gap: 7px;
+  padding: 3px 0;
+}
+.w-pay-entry + .w-pay-entry {
+  border-top: 1px dashed var(--line);
+  margin-top: 3px;
+  padding-top: 6px;
 }
 .w-pay-text {
-  flex: 1;
   font-size: 12px;
   color: var(--muted);
   white-space: normal;
   word-break: break-word;
-  cursor: pointer;
+  line-height: 1.4;
 }
-.w-pay-text:hover .w-cell-val { text-decoration: underline dotted; }
-.w-pay-done-text .w-cell-val { text-decoration: line-through; color: #16a34a; font-weight: 600; }
+.w-pay-done-text { text-decoration: line-through; color: #16a34a; font-weight: 600; }
 .w-done-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 1px 3px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  opacity: 0.6;
-  transition: 0.15s;
-}
-.w-done-btn:hover { opacity: 1; background: #f0fdf4; }
-.w-done-btn.done { opacity: 1; }
-
-/* Inline edit inputs */
-.w-inline-input {
-  border: 2px solid #be185d;
-  border-radius: 6px;
-  padding: 3px 6px;
-  font-size: 13px;
-  font-family: inherit;
-  width: 100%;
-  outline: none;
-  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
   background: #fff;
-}
-.w-inline-num  { width: 110px; text-align: right; }
-.w-inline-textarea { resize: vertical; min-height: 70px; }
-
-/* Notes editable span in detail row */
-.w-notes-editable {
-  display: inline-block;
-  min-width: 200px;
   cursor: pointer;
-  border-radius: 4px;
-  padding: 2px 4px;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s;
 }
-.w-notes-editable:hover { background: #fce7f3; }
-.w-notes-editable .w-cell-val:empty::before {
-  content: 'Click to add…';
-  color: #94a3b8;
-  font-style: italic;
-}
+.w-done-btn:hover { border-color: #16a34a; background: #f0fdf4; }
+.w-done-btn.done { background: #16a34a; border-color: #16a34a; }
 
 /* Toolbar bar above groups */
 .w-toolbar-bar {

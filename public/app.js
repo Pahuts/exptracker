@@ -429,7 +429,7 @@ async function patchSupplier(id, fields) {
   });
   if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Save failed'); }
   const updated = await res.json();
-  const idx = weddingData.findIndex((s) => s.id === id);
+  const idx = weddingData.findIndex((s) => String(s.id) === String(id));
   if (idx !== -1) weddingData[idx] = updated;
   return updated;
 }
@@ -448,7 +448,7 @@ async function createSupplier(fields) {
 
 async function deleteSupplier(id) {
   await api(`${API}/wedding-suppliers/${id}`, { method: 'DELETE' });
-  weddingData = weddingData.filter((s) => s.id !== id);
+  weddingData = weddingData.filter((s) => String(s.id) !== String(id));
 }
 
 // --- Render ----------------------------------------------------------------
@@ -579,8 +579,7 @@ function renderWeddingGroups() {
             <th class="num">Balance</th>
             <th>Status</th>
             <th>Contract</th>
-            <th>First Payment</th>
-            <th>Next Payment</th>
+            <th>Payments</th>
             <th></th>
           </tr></thead>
           <tbody>${rows.map(buildSupplierRow).join('')}</tbody>
@@ -622,21 +621,19 @@ function buildSupplierRow(s) {
       <td class="num ${s.balance > 0 ? 'w-bal-due' : 'w-bal-ok'}">${s.balance > 0 ? peso(s.balance) : '✓'}</td>
       <td><span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span></td>
       <td class="w-contract">${escapeHtml(s.contract_sent) || '—'}</td>
-      <td class="w-date-cell">
-        <span class="w-pay-text${s.first_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.first_payment) || '—'}</span>
-        <button class="w-done-btn${s.first_payment_done ? ' done' : ''}"
-                data-sid="${s.id}" data-field="first_payment_done"
-                title="${s.first_payment_done ? 'Unmark' : 'Mark as done'}">
-          ${s.first_payment_done ? '✅' : '○'}
-        </button>
-      </td>
-      <td class="w-date-cell">
-        <span class="w-pay-text${s.next_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.next_payment) || '—'}</span>
-        <button class="w-done-btn${s.next_payment_done ? ' done' : ''}"
-                data-sid="${s.id}" data-field="next_payment_done"
-                title="${s.next_payment_done ? 'Unmark' : 'Mark as done'}">
-          ${s.next_payment_done ? '✅' : '○'}
-        </button>
+      <td class="w-payment-cell">
+        <div class="w-pay-entry">
+          <button class="w-done-btn${s.first_payment_done ? ' done' : ''}"
+                  data-sid="${s.id}" data-field="first_payment_done"
+                  title="${s.first_payment_done ? 'Unmark' : 'Mark as done'}"></button>
+          <span class="w-pay-text${s.first_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.first_payment) || '—'}</span>
+        </div>
+        ${s.next_payment ? `<div class="w-pay-entry">
+          <button class="w-done-btn${s.next_payment_done ? ' done' : ''}"
+                  data-sid="${s.id}" data-field="next_payment_done"
+                  title="${s.next_payment_done ? 'Unmark' : 'Mark as done'}"></button>
+          <span class="w-pay-text${s.next_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.next_payment)}</span>
+        </div>` : ''}
       </td>
       <td class="w-row-actions">
         <button class="w-edit-btn" data-edit-sid="${s.id}" title="Edit supplier">✏️</button>
@@ -645,7 +642,7 @@ function buildSupplierRow(s) {
       </td>
     </tr>
     <tr class="w-detail-row hidden" id="wd-${s.id}">
-      <td colspan="13">
+      <td colspan="12">
         <div class="w-detail-inner">
           <div class="w-detail-item">
             <div class="w-detail-label">Payment Notes</div>
@@ -665,8 +662,8 @@ document.getElementById('wGroups').addEventListener('click', async (e) => {
   // Edit supplier
   const editBtn = e.target.closest('.w-edit-btn');
   if (editBtn) {
-    const sid = parseInt(editBtn.dataset.editSid, 10);
-    const supplier = weddingData.find((s) => s.id === sid);
+    const sid = editBtn.dataset.editSid;
+    const supplier = weddingData.find((s) => String(s.id) === sid);
     if (supplier) openWModal(supplier);
     return;
   }
@@ -674,9 +671,9 @@ document.getElementById('wGroups').addEventListener('click', async (e) => {
   // Payment done toggle
   const doneBtn = e.target.closest('.w-done-btn');
   if (doneBtn) {
-    const sid   = parseInt(doneBtn.dataset.sid, 10);
+    const sid   = doneBtn.dataset.sid;
     const field = doneBtn.dataset.field;
-    const supplier = weddingData.find((s) => s.id === sid);
+    const supplier = weddingData.find((s) => String(s.id) === sid);
     if (!supplier) return;
     try {
       await patchSupplier(sid, { [field]: !supplier[field] });
@@ -688,7 +685,7 @@ document.getElementById('wGroups').addEventListener('click', async (e) => {
   // Expand/collapse notes
   const expandBtn = e.target.closest('.w-expand-btn');
   if (expandBtn) {
-    const id = parseInt(expandBtn.dataset.id, 10);
+    const id = expandBtn.dataset.id;
     const detail = document.getElementById(`wd-${id}`);
     if (!detail) return;
     const isOpen = !detail.classList.contains('hidden');
@@ -702,7 +699,7 @@ document.getElementById('wGroups').addEventListener('click', async (e) => {
   const delBtn = e.target.closest('.w-del-btn');
   if (delBtn) {
     if (!confirm('Delete this supplier?')) return;
-    const sid = parseInt(delBtn.dataset.sid, 10);
+    const sid = delBtn.dataset.sid;
     try {
       await deleteSupplier(sid);
       openDetailRows.delete(sid);
