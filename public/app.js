@@ -589,9 +589,6 @@ function renderWeddingGroups() {
     container.appendChild(card);
   }
 
-  // Attach inline-edit handlers
-  container.querySelectorAll('[data-editable]').forEach(attachInlineEdit);
-
   // Restore open detail rows
   openDetailRows.forEach((id) => {
     const dr  = document.getElementById(`wd-${id}`);
@@ -608,27 +605,13 @@ function buildSupplierRow(s) {
     s.status === 'Fully Paid'     ? 'ws-fully-paid' :
     s.status === 'Booked DP Paid' ? 'ws-booked'     : 'ws-deciding';
 
-  // helper for editable cells
-  const ed = (field, type, display) =>
-    `<span class="w-cell-val">${display}</span>`;
-
   return `
     <tr class="w-row" data-sid="${s.id}">
-      <td class="w-supplier-name" data-editable data-sid="${s.id}" data-field="supplier_name" data-type="text" title="Click to edit">
-        ${ed('supplier_name','text', escapeHtml(s.supplier_name))}
-      </td>
-      <td class="num" data-editable data-sid="${s.id}" data-field="estimated_amount" data-type="number" title="Click to edit">
-        ${ed('estimated_amount','number', peso(s.estimated_amount))}
-      </td>
-      <td class="num" data-editable data-sid="${s.id}" data-field="actual_amount" data-type="number" title="Click to edit">
-        ${ed('actual_amount','number', peso(s.actual_amount))}
-      </td>
-      <td class="num" data-editable data-sid="${s.id}" data-field="gaile_paid" data-type="number" title="Click to edit">
-        ${ed('gaile_paid','number', peso(s.gaile_paid))}
-      </td>
-      <td class="num" data-editable data-sid="${s.id}" data-field="nald_paid" data-type="number" title="Click to edit">
-        ${ed('nald_paid','number', peso(s.nald_paid))}
-      </td>
+      <td class="w-supplier-name">${escapeHtml(s.supplier_name)}</td>
+      <td class="num">${peso(s.estimated_amount)}</td>
+      <td class="num">${peso(s.actual_amount)}</td>
+      <td class="num">${peso(s.gaile_paid)}</td>
+      <td class="num">${peso(s.nald_paid)}</td>
       <td class="num w-derived">${peso(s.total_paid)}</td>
       <td class="num w-derived">
         <div class="w-mini-bar-wrap">
@@ -637,17 +620,10 @@ function buildSupplierRow(s) {
         </div>
       </td>
       <td class="num ${s.balance > 0 ? 'w-bal-due' : 'w-bal-ok'}">${s.balance > 0 ? peso(s.balance) : '✓'}</td>
-      <td data-editable data-sid="${s.id}" data-field="status" data-type="select" title="Click to edit">
-        ${ed('status','select', `<span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span>`)}
-      </td>
-      <td class="w-contract" data-editable data-sid="${s.id}" data-field="contract_sent" data-type="text" title="Click to edit">
-        ${ed('contract_sent','text', escapeHtml(s.contract_sent) || '—')}
-      </td>
+      <td><span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span></td>
+      <td class="w-contract">${escapeHtml(s.contract_sent) || '—'}</td>
       <td class="w-date-cell">
-        <span class="w-pay-text${s.first_payment_done ? ' w-pay-done-text' : ''}"
-              data-editable data-sid="${s.id}" data-field="first_payment" data-type="text" title="Click to edit">
-          ${ed('first_payment','text', escapeHtml(s.first_payment) || '—')}
-        </span>
+        <span class="w-pay-text${s.first_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.first_payment) || '—'}</span>
         <button class="w-done-btn${s.first_payment_done ? ' done' : ''}"
                 data-sid="${s.id}" data-field="first_payment_done"
                 title="${s.first_payment_done ? 'Unmark' : 'Mark as done'}">
@@ -655,10 +631,7 @@ function buildSupplierRow(s) {
         </button>
       </td>
       <td class="w-date-cell">
-        <span class="w-pay-text${s.next_payment_done ? ' w-pay-done-text' : ''}"
-              data-editable data-sid="${s.id}" data-field="next_payment" data-type="text" title="Click to edit">
-          ${ed('next_payment','text', escapeHtml(s.next_payment) || '—')}
-        </span>
+        <span class="w-pay-text${s.next_payment_done ? ' w-pay-done-text' : ''}">${escapeHtml(s.next_payment) || '—'}</span>
         <button class="w-done-btn${s.next_payment_done ? ' done' : ''}"
                 data-sid="${s.id}" data-field="next_payment_done"
                 title="${s.next_payment_done ? 'Unmark' : 'Mark as done'}">
@@ -666,6 +639,7 @@ function buildSupplierRow(s) {
         </button>
       </td>
       <td class="w-row-actions">
+        <button class="w-edit-btn" data-edit-sid="${s.id}" title="Edit supplier">✏️</button>
         <button class="w-expand-btn" data-id="${s.id}" title="Payment notes / Remarks">▾</button>
         <button class="w-del-btn" data-sid="${s.id}" title="Delete supplier">🗑️</button>
       </td>
@@ -674,101 +648,29 @@ function buildSupplierRow(s) {
       <td colspan="13">
         <div class="w-detail-inner">
           <div class="w-detail-item">
-            <span class="w-detail-label">Payment Notes</span>
-            <span class="w-notes-editable" data-editable data-sid="${s.id}" data-field="payment_notes" data-type="textarea" title="Click to edit">
-              <span class="w-cell-val">${escapeHtml(s.payment_notes)}</span>
-            </span>
+            <div class="w-detail-label">Payment Notes</div>
+            <div class="w-detail-text">${escapeHtml(s.payment_notes) || '<span class="w-detail-empty">—</span>'}</div>
           </div>
           <div class="w-detail-item">
-            <span class="w-detail-label">Remarks</span>
-            <span class="w-notes-editable" data-editable data-sid="${s.id}" data-field="remarks" data-type="textarea" title="Click to edit">
-              <span class="w-cell-val">${escapeHtml(s.remarks)}</span>
-            </span>
+            <div class="w-detail-label">Remarks</div>
+            <div class="w-detail-text">${escapeHtml(s.remarks) || '<span class="w-detail-empty">—</span>'}</div>
           </div>
         </div>
       </td>
     </tr>`;
 }
 
-// --- Inline edit handler --------------------------------------------------
-function attachInlineEdit(el) {
-  const sid   = parseInt(el.dataset.sid, 10);
-  const field = el.dataset.field;
-  const type  = el.dataset.type;
-
-  el.style.cursor = 'pointer';
-  el.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (el.querySelector('input,select,textarea')) return;
-
-    const supplier = weddingData.find((s) => s.id === sid);
-    if (!supplier) return;
-    const currentVal = supplier[field];
-
-    let input;
-    if (type === 'select') {
-      input = document.createElement('select');
-      input.className = 'w-inline-input';
-      W_STATUSES.forEach((st) => {
-        const opt = new Option(st, st);
-        if (st === currentVal) opt.selected = true;
-        input.appendChild(opt);
-      });
-    } else if (type === 'textarea') {
-      input = document.createElement('textarea');
-      input.className = 'w-inline-input w-inline-textarea';
-      input.value = currentVal || '';
-      input.rows = 4;
-    } else if (type === 'number') {
-      input = document.createElement('input');
-      input.type = 'number'; input.step = '0.01'; input.min = '0';
-      input.className = 'w-inline-input w-inline-num';
-      input.value = currentVal != null ? currentVal : 0;
-    } else {
-      input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'w-inline-input';
-      input.value = currentVal || '';
-    }
-
-    const valSpan = el.querySelector('.w-cell-val');
-    if (valSpan) valSpan.style.display = 'none';
-    el.appendChild(input);
-    input.focus();
-    if (type !== 'textarea') input.select?.();
-
-    let saved = false;
-    const save = async () => {
-      if (saved) return;
-      saved = true;
-      const raw = type === 'number' ? (parseFloat(input.value) || 0) : input.value.trim();
-      // No-op check (coerce both to same type for comparison)
-      if (String(raw) === String(currentVal ?? '')) {
-        if (valSpan) valSpan.style.display = '';
-        input.remove();
-        return;
-      }
-      try {
-        await patchSupplier(sid, { [field]: raw });
-        renderWeddingSummary();
-        renderWeddingGroups();
-      } catch (err) {
-        console.error('Save failed:', err.message);
-        if (valSpan) valSpan.style.display = '';
-        input.remove();
-      }
-    };
-
-    input.addEventListener('blur', save);
-    input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' && type !== 'textarea') { ev.preventDefault(); input.blur(); }
-      if (ev.key === 'Escape') { saved = true; if (valSpan) valSpan.style.display = ''; input.remove(); }
-    });
-  });
-}
-
 // --- Event delegation on #wGroups -----------------------------------------
 document.getElementById('wGroups').addEventListener('click', async (e) => {
+  // Edit supplier
+  const editBtn = e.target.closest('.w-edit-btn');
+  if (editBtn) {
+    const sid = parseInt(editBtn.dataset.editSid, 10);
+    const supplier = weddingData.find((s) => s.id === sid);
+    if (supplier) openWModal(supplier);
+    return;
+  }
+
   // Payment done toggle
   const doneBtn = e.target.closest('.w-done-btn');
   if (doneBtn) {

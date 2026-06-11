@@ -344,6 +344,16 @@ td.w-supplier-name { font-weight: 600; white-space: normal; word-break: break-wo
 
 /* Delete button in row actions */
 .w-row-actions { white-space: nowrap; text-align: right; }
+.w-edit-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+.w-edit-btn:hover { background: #ede9fe; opacity: 1; }
 .w-del-btn {
   border: none;
   background: transparent;
@@ -453,26 +463,34 @@ td.w-date-cell {
 /* Detail row (payment notes + remarks) */
 .w-detail-row td { padding: 0 !important; border-bottom: 2px solid #fce7f3 !important; }
 .w-detail-inner {
-  padding: 10px 20px 14px;
+  padding: 16px 24px 20px;
   background: #fdf8fc;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
-.w-detail-item { font-size: 13px; color: var(--ink); white-space: pre-wrap; line-height: 1.5; }
+@media (max-width: 700px) { .w-detail-inner { grid-template-columns: 1fr; } }
+.w-detail-item { font-size: 13px; color: var(--ink); }
 .w-detail-label {
-  display: inline-block;
+  display: block;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #be185d;
   background: #fce7f3;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 4px;
-  margin-right: 8px;
-  vertical-align: middle;
+  margin-bottom: 8px;
+  width: fit-content;
 }
+.w-detail-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: var(--ink);
+  font-size: 13px;
+}
+.w-detail-empty { color: var(--muted); }
 
 /* Wedding supplier modal (wider than expense modal) */
 .w-modal { max-width: 620px; overflow-y: auto; max-height: 90vh; }
