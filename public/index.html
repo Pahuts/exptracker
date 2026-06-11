@@ -214,7 +214,13 @@
           <label>Nald Paid (₱)<input id="wMNald" type="number" step="0.01" min="0" value="0" /></label>
         </div>
         <div class="row">
-          <label>Contract Sent<input id="wMContract" placeholder="Email / Yes / NA" /></label>
+          <label>Contract Sent
+            <select id="wMContract">
+              <option value="">—</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
+            </select>
+          </label>
           <label>First Payment<input id="wMFirstPay" placeholder="e.g. April 17, 2025" /></label>
         </div>
         <label>Next Payment<input id="wMNextPay" placeholder="e.g. March 14, 2027" /></label>

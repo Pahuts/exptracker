@@ -402,7 +402,7 @@ const W_CATEGORIES = [
   'HMUA Bride','HMUA Entourage','Ceremony and Reception','Coordinator',
   'Videographer','Photographer','Singer','Styling','Cocktail Hour',
   'Accommodation','Bride Outfit','Groom Outfit','Entourage Outfit',
-  'Gifts/Souvenirs','Wedding Needs',
+  'Gifts/Souvenirs','Wedding Needs','Other Expenses',
 ];
 
 let weddingStatusFilter = '';
@@ -468,7 +468,7 @@ function renderWeddingToolbar() {
           ${escapeHtml(labels[s] || s)}
         </button>`).join('')}
     </div>
-    <button class="btn btn-pink" id="wAddBtn">+ Add Supplier</button>`;
+    <button class="btn btn-pink" id="wAddBtn">+ Add Expense</button>`;
 
   toolbar.querySelectorAll('.w-filter-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -620,7 +620,7 @@ function buildSupplierRow(s) {
       </td>
       <td class="num ${s.balance > 0 ? 'w-bal-due' : 'w-bal-ok'}">${s.balance > 0 ? peso(s.balance) : '✓'}</td>
       <td><span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span></td>
-      <td class="w-contract">${escapeHtml(s.contract_sent) || '—'}</td>
+      <td class="w-contract">${s.contract_sent === 'Yes' ? '<span class="badge paid">Yes</span>' : s.contract_sent === 'No' ? '<span class="badge unpaid">No</span>' : '—'}</td>
       <td class="w-payment-cell">
         <div class="w-pay-entry">
           <button class="w-done-btn${s.first_payment_done ? ' done' : ''}"
@@ -714,7 +714,7 @@ const wModal     = document.getElementById('wModal');
 const wModalForm = document.getElementById('wModalForm');
 
 function openWModal(supplier) {
-  document.getElementById('wModalTitle').textContent   = supplier ? 'Edit Supplier' : 'Add Supplier';
+  document.getElementById('wModalTitle').textContent   = supplier ? 'Edit Expense' : 'Add Expense';
   document.getElementById('wMId').value                = supplier?.id ?? '';
   document.getElementById('wMCategory').value          = supplier?.category ?? '';
   document.getElementById('wMSupplier').value          = supplier?.supplier_name ?? '';
