@@ -57,6 +57,27 @@ async function initDb() {
   await query(`
     CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS wedding_suppliers (
+      id               BIGSERIAL PRIMARY KEY,
+      category         TEXT NOT NULL,
+      supplier_name    TEXT NOT NULL,
+      estimated_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+      actual_amount    NUMERIC(14,2) NOT NULL DEFAULT 0,
+      total_paid       NUMERIC(14,2) NOT NULL DEFAULT 0,
+      gaile_paid       NUMERIC(14,2) NOT NULL DEFAULT 0,
+      nald_paid        NUMERIC(14,2) NOT NULL DEFAULT 0,
+      balance          NUMERIC(14,2) NOT NULL DEFAULT 0,
+      first_payment    TEXT NOT NULL DEFAULT '',
+      next_payment     TEXT NOT NULL DEFAULT '',
+      payment_notes    TEXT NOT NULL DEFAULT '',
+      status           TEXT NOT NULL DEFAULT 'Deciding',
+      contract_sent    TEXT NOT NULL DEFAULT '',
+      remarks          TEXT NOT NULL DEFAULT '',
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 }
 
 module.exports = {

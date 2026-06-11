@@ -23,15 +23,17 @@
   </header>
 
   <main>
-    <!-- Scope selector: filters cards, charts, and table together -->
-    <section class="scope-bar">
-      <label for="scope">Viewing</label>
-      <select id="scope">
-        <option value="all">All Expenses</option>
-        <option value="house">🏠 House</option>
-        <option value="wedding">💍 Wedding</option>
-      </select>
-    </section>
+    <!-- Tab navigation -->
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="house">🏠 House Expenses</button>
+      <button class="tab" data-tab="wedding">💍 Wedding Suppliers</button>
+    </nav>
+
+    <!-- Hidden scope input: always 'house' since wedding is a separate tab -->
+    <select id="scope" class="hidden"><option value="house" selected>House</option></select>
+
+    <!-- ══ HOUSE VIEW ══════════════════════════════════════════════════════ -->
+    <div id="house-view">
 
     <!-- Summary cards -->
     <section class="cards" id="cards"></section>
@@ -96,6 +98,15 @@
         <p id="emptyState" class="empty hidden">No matching expenses.</p>
       </div>
     </section>
+
+    </div><!-- /#house-view -->
+
+    <!-- ══ WEDDING VIEW ════════════════════════════════════════════════════ -->
+    <div id="wedding-view" class="hidden">
+      <section class="w-summary" id="wSummary"></section>
+      <div class="w-groups" id="wGroups"></div>
+    </div><!-- /#wedding-view -->
+
   </main>
 
   <!-- Modal -->

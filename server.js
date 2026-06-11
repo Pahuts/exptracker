@@ -59,7 +59,7 @@ function scopeFilter(scope, start = 1) {
   }
   if (scope === 'wedding') {
     return { clause: `category LIKE $${start}`, params: ['Wedding:%'] };
-  }
+  } 
   return { clause: '', params: [] };
 }
 
@@ -190,6 +190,24 @@ app.delete('/api/expenses/:id', async (req, res) => {
     const result = await db.query('DELETE FROM expenses WHERE id = $1', [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.status(204).end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- WEDDING SUPPLIERS (read-only) ----------------------------------------
+app.get('/api/wedding-suppliers', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, category, supplier_name,
+              estimated_amount::float, actual_amount::float,
+              total_paid::float, gaile_paid::float, nald_paid::float,
+              balance::float, first_payment, next_payment,
+              payment_notes, status, contract_sent, remarks
+       FROM wedding_suppliers
+       ORDER BY id ASC`
+    );
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

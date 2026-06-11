@@ -364,4 +364,194 @@ document.querySelectorAll('th.sortable').forEach((th) => {
 async function refresh() {
   await Promise.all([fetchExpenses(), fetchStats(), populateFilters()]);
 }
+
+// ---------------------------------------------------------------------------
+// Tab navigation
+// ---------------------------------------------------------------------------
+let weddingLoaded = false;
+
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    const name = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    const isWedding = name === 'wedding';
+    document.getElementById('house-view').classList.toggle('hidden', isWedding);
+    document.getElementById('wedding-view').classList.toggle('hidden', !isWedding);
+    document.getElementById('addBtn').classList.toggle('hidden', isWedding);
+
+    if (isWedding && !weddingLoaded) {
+      fetchWeddingSuppliers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wedding Suppliers
+// ---------------------------------------------------------------------------
+let weddingData = [];
+
+async function fetchWeddingSuppliers() {
+  const res = await api(`${API}/wedding-suppliers`);
+  weddingData = await res.json();
+  weddingLoaded = true;
+  renderWeddingView();
+}
+
+function renderWeddingView() {
+  renderWeddingSummary();
+  renderWeddingGroups();
+}
+
+function renderWeddingSummary() {
+  const t = weddingData.reduce(
+    (a, s) => {
+      a.estimated += s.estimated_amount;
+      a.actual += s.actual_amount;
+      a.paid += s.total_paid;
+      a.balance += s.balance;
+      a.gaile += s.gaile_paid;
+      a.nald += s.nald_paid;
+      return a;
+    },
+    { estimated: 0, actual: 0, paid: 0, balance: 0, gaile: 0, nald: 0 }
+  );
+  const pct = t.actual > 0 ? Math.round((t.paid / t.actual) * 100) : 0;
+
+  document.getElementById('wSummary').innerHTML = `
+    <div class="w-card">
+      <div class="label">Estimated Budget</div>
+      <div class="value">${peso(t.estimated)}</div>
+    </div>
+    <div class="w-card">
+      <div class="label">Actual Total</div>
+      <div class="value">${peso(t.actual)}</div>
+    </div>
+    <div class="w-card w-accent">
+      <div class="label">Total Paid</div>
+      <div class="value">${peso(t.paid)}</div>
+      <div class="sub">${pct}% of actual</div>
+    </div>
+    <div class="w-card w-balance">
+      <div class="label">Remaining Balance</div>
+      <div class="value">${peso(t.balance)}</div>
+    </div>
+    <div class="w-card w-gaile">
+      <div class="label">Gaile Paid</div>
+      <div class="value">${peso(t.gaile)}</div>
+    </div>
+    <div class="w-card w-nald">
+      <div class="label">Nald Paid</div>
+      <div class="value">${peso(t.nald)}</div>
+    </div>`;
+}
+
+function renderWeddingGroups() {
+  // Preserve category order from data
+  const order = [];
+  const groups = {};
+  for (const s of weddingData) {
+    if (!groups[s.category]) { groups[s.category] = []; order.push(s.category); }
+    groups[s.category].push(s);
+  }
+
+  const container = document.getElementById('wGroups');
+  container.innerHTML = '';
+
+  for (const cat of order) {
+    const rows = groups[cat];
+    const catActual = rows.reduce((a, r) => a + r.actual_amount, 0);
+    const catPaid   = rows.reduce((a, r) => a + r.total_paid, 0);
+    const catBal    = rows.reduce((a, r) => a + r.balance, 0);
+    const catPct    = catActual > 0 ? Math.round((catPaid / catActual) * 100) : 0;
+
+    const card = document.createElement('div');
+    card.className = 'w-group-card';
+    card.innerHTML = `
+      <div class="w-group-header">
+        <div class="w-group-title">
+          <span class="w-cat-name">${escapeHtml(cat)}</span>
+          <span class="w-cat-count">${rows.length} supplier${rows.length > 1 ? 's' : ''}</span>
+        </div>
+        <div class="w-group-totals">
+          <span>Actual <strong>${peso(catActual)}</strong></span>
+          <span>Paid <strong>${peso(catPaid)}</strong></span>
+          <span class="w-pct-badge">${catPct}%</span>
+          <span>Balance <strong class="w-bal-val">${catBal > 0 ? peso(catBal) : '✓ Fully Paid'}</strong></span>
+        </div>
+      </div>
+      <div class="w-progress-bar"><div class="w-progress-fill" style="width:${catPct}%"></div></div>
+      <div class="w-table-wrap">
+        <table class="w-table">
+          <thead>
+            <tr>
+              <th>Supplier</th>
+              <th class="num">Actual</th>
+              <th class="num">Paid</th>
+              <th class="num">Progress</th>
+              <th class="num">Balance</th>
+              <th>Status</th>
+              <th>Contract</th>
+              <th>First Payment</th>
+              <th>Next Payment</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r) => buildSupplierRow(r)).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    container.appendChild(card);
+  }
+}
+
+function buildSupplierRow(s) {
+  const pct = s.actual_amount > 0 ? Math.round((s.total_paid / s.actual_amount) * 100) : 0;
+  const statusClass =
+    s.status === 'Fully Paid'      ? 'ws-fully-paid' :
+    s.status === 'Booked DP Paid'  ? 'ws-booked'     : 'ws-deciding';
+  const hasDetails = s.payment_notes || s.remarks;
+
+  return `
+    <tr class="w-row">
+      <td class="w-supplier-name">
+        ${escapeHtml(s.supplier_name)}
+        ${hasDetails ? `<button class="w-expand-btn" data-id="${s.id}" title="Show notes/remarks">▾</button>` : ''}
+      </td>
+      <td class="num">${s.actual_amount > 0 ? peso(s.actual_amount) : '—'}</td>
+      <td class="num">${s.total_paid > 0 ? peso(s.total_paid) : '—'}</td>
+      <td class="num">
+        <div class="w-mini-bar-wrap">
+          <div class="w-mini-bar"><div class="w-mini-fill" style="width:${pct}%"></div></div>
+          <span class="w-mini-pct">${pct}%</span>
+        </div>
+      </td>
+      <td class="num ${s.balance > 0 ? 'w-bal-due' : 'w-bal-ok'}">${s.balance > 0 ? peso(s.balance) : '✓'}</td>
+      <td><span class="ws-badge ${statusClass}">${escapeHtml(s.status)}</span></td>
+      <td class="w-contract">${escapeHtml(s.contract_sent) || '—'}</td>
+      <td class="w-date">${escapeHtml(s.first_payment) || '—'}</td>
+      <td class="w-date">${escapeHtml(s.next_payment) || '—'}</td>
+    </tr>
+    ${hasDetails ? `
+    <tr class="w-detail-row hidden" id="wd-${s.id}">
+      <td colspan="9">
+        <div class="w-detail-inner">
+          ${s.payment_notes ? `<div class="w-detail-item"><span class="w-detail-label">Payment Notes</span>${escapeHtml(s.payment_notes)}</div>` : ''}
+          ${s.remarks      ? `<div class="w-detail-item"><span class="w-detail-label">Remarks</span>${escapeHtml(s.remarks)}</div>` : ''}
+        </div>
+      </td>
+    </tr>` : ''}`;
+}
+
+document.getElementById('wGroups').addEventListener('click', (e) => {
+  const btn = e.target.closest('.w-expand-btn');
+  if (!btn) return;
+  const detail = document.getElementById(`wd-${btn.dataset.id}`);
+  if (!detail) return;
+  const open = !detail.classList.contains('hidden');
+  detail.classList.toggle('hidden', open);
+  btn.textContent = open ? '▾' : '▴';
+});
+
 refresh();
