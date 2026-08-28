@@ -815,19 +815,23 @@ async function fetchOverallStats() {
 
 function renderOverallView(houseStats) {
   const h = houseStats.totals;
+  const year = document.getElementById('overallYear').value;
+  const showWedding = !year || year === '2026' || year === '2027';
 
-  const wTotals = weddingData.reduce(
-    (a, s) => {
-      a.estimated += s.estimated_amount;
-      a.actual    += s.actual_amount;
-      a.paid      += s.total_paid;
-      a.balance   += s.balance;
-      a.gaile     += s.gaile_paid;
-      a.nald      += s.nald_paid;
-      return a;
-    },
-    { estimated: 0, actual: 0, paid: 0, balance: 0, gaile: 0, nald: 0 }
-  );
+  const wTotals = showWedding
+    ? weddingData.reduce(
+        (a, s) => {
+          a.estimated += s.estimated_amount;
+          a.actual    += s.actual_amount;
+          a.paid      += s.total_paid;
+          a.balance   += s.balance;
+          a.gaile     += s.gaile_paid;
+          a.nald      += s.nald_paid;
+          return a;
+        },
+        { estimated: 0, actual: 0, paid: 0, balance: 0, gaile: 0, nald: 0 }
+      )
+    : { estimated: 0, actual: 0, paid: 0, balance: 0, gaile: 0, nald: 0 };
 
   const grandTotal  = h.total + wTotals.actual;
   const grandPaid   = h.paid  + wTotals.paid;
@@ -841,7 +845,7 @@ function renderOverallView(houseStats) {
     <div class="card">
       <div class="label">Grand Total</div>
       <div class="value">${peso(grandTotal)}</div>
-      <div class="sub">House + Wedding</div>
+      <div class="sub">${showWedding ? 'House + Wedding' : 'House only'}</div>
     </div>
     <div class="card paid">
       <div class="label">Total Paid</div>
@@ -851,7 +855,7 @@ function renderOverallView(houseStats) {
     <div class="card unpaid">
       <div class="label">Outstanding</div>
       <div class="value">${peso(grandUnpaid)}</div>
-      <div class="sub">Unpaid + Wedding balance</div>
+      <div class="sub">${showWedding ? 'Unpaid + Wedding balance' : 'Unpaid dues'}</div>
     </div>
     <div class="card planned">
       <div class="label">Planned</div>
@@ -861,12 +865,12 @@ function renderOverallView(houseStats) {
     <div class="card">
       <div class="label">Gaile Total</div>
       <div class="value">${peso(grandGaile)}</div>
-      <div class="sub">Across both trackers</div>
+      <div class="sub">${showWedding ? 'Across both trackers' : 'House only'}</div>
     </div>
     <div class="card">
       <div class="label">Nald Total</div>
       <div class="value">${peso(grandNald)}</div>
-      <div class="sub">Across both trackers</div>
+      <div class="sub">${showWedding ? 'Across both trackers' : 'House only'}</div>
     </div>`;
 
   // House breakdown by category
@@ -897,6 +901,13 @@ function renderOverallView(houseStats) {
     </table>`;
 
   // Wedding breakdown by category
+  const weddingCol = document.getElementById('overallWeddingDetail').closest('.overall-col');
+  if (!showWedding) {
+    weddingCol.classList.add('hidden');
+    return;
+  }
+  weddingCol.classList.remove('hidden');
+
   const wCatMap = {};
   for (const s of weddingData) {
     if (!wCatMap[s.category]) wCatMap[s.category] = { actual: 0, paid: 0, balance: 0 };
