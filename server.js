@@ -1,5 +1,6 @@
 const path = require('path');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 const auth = require('./auth');
 
@@ -12,6 +13,24 @@ app.set('trust proxy', 1);
 
 app.use(express.json());
 
+// 5 login attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again in 15 minutes.' },
+});
+
+// 120 write requests per minute per IP (covers POST/PUT/PATCH/DELETE on all API routes)
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Slow down.' },
+});
+
 // Adds the Secure flag to cookies in production so they are only sent over HTTPS.
 const secureFlag = auth.isProduction ? ' Secure;' : '';
 
@@ -22,7 +41,7 @@ app.get('/login', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   if (!auth.verifyPassword(req.body?.password)) {
     return res.status(401).json({ error: 'Incorrect password' });
   }
@@ -47,6 +66,12 @@ app.use((req, res, next) => {
   if (auth.isAuthed(req)) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
   return res.redirect('/login');
+});
+
+// Rate-limit all authenticated write operations
+app.use('/api', (req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return writeLimiter(req, res, next);
+  next();
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
