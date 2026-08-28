@@ -1,6 +1,6 @@
 # House Budget · Expense Tracker
 
-A full-stack expense tracker for the Grand Royale (Malolos, Bulacan) house budget.
+A full-stack expense tracker.
 Full CRUD over a cloud Postgres database, plus a dashboard with summary cards and charts.
 
 ## Stack
