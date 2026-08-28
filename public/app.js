@@ -40,8 +40,10 @@ async function fetchExpenses() {
 
 async function fetchStats() {
   const scope = document.getElementById('scope').value;
+  const year  = document.getElementById('chartYear').value;
   const params = new URLSearchParams();
   if (scope && scope !== 'all') params.set('scope', scope);
+  if (year) params.set('year', year);
   const res = await api(`${API}/stats?${params}`);
   const stats = await res.json();
   renderCards(stats);
@@ -254,6 +256,14 @@ async function populateFilters() {
   const yearSel = document.getElementById('filterYear');
   yearSel.innerHTML = '<option value="">All years</option>';
   for (const y of years) yearSel.insertAdjacentHTML('beforeend', `<option>${y}</option>`);
+
+  const chartYearSel = document.getElementById('chartYear');
+  chartYearSel.innerHTML = '<option value="">All years</option>';
+  for (const y of years) chartYearSel.insertAdjacentHTML('beforeend', `<option>${y}</option>`);
+
+  const overallYearSel = document.getElementById('overallYear');
+  overallYearSel.innerHTML = '<option value="">All years</option>';
+  for (const y of years) overallYearSel.insertAdjacentHTML('beforeend', `<option>${y}</option>`);
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +348,9 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   const el = document.getElementById(id);
   el.addEventListener(id === 'search' ? 'input' : 'change', fetchExpenses);
 });
+
+document.getElementById('chartYear').addEventListener('change', fetchStats);
+document.getElementById('overallYear').addEventListener('change', fetchOverallStats);
 
 // Scope (House / Wedding / All) refreshes cards, charts, and table together.
 document.getElementById('scope').addEventListener('change', () => {
@@ -516,10 +529,14 @@ function renderWeddingSummary() {
     <div class="w-card w-gaile">
       <div class="label">Gaile Paid</div>
       <div class="value">${peso(t.gaile)}</div>
+      <div class="sub">Budget: ${peso(750000)}</div>
+      <div class="sub w-budget-remaining ${750000 - t.gaile < 0 ? 'over-budget' : ''}">Remaining: ${peso(750000 - t.gaile)}</div>
     </div>
     <div class="w-card w-nald">
       <div class="label">Nald Paid</div>
       <div class="value">${peso(t.nald)}</div>
+      <div class="sub">Budget: ${peso(750000)}</div>
+      <div class="sub w-budget-remaining ${750000 - t.nald < 0 ? 'over-budget' : ''}">Remaining: ${peso(750000 - t.nald)}</div>
     </div>`;
 }
 
@@ -780,9 +797,12 @@ wModalForm.addEventListener('submit', async (ev) => {
 // Overall Total
 // ---------------------------------------------------------------------------
 async function fetchOverallStats() {
+  const year = document.getElementById('overallYear').value;
+  const overallParams = new URLSearchParams();
+  if (year) overallParams.set('year', year);
   // House stats (all scopes)
   const [statsRes, weddingRes] = await Promise.all([
-    api(`${API}/stats`),
+    api(`${API}/stats?${overallParams}`),
     weddingLoaded ? Promise.resolve(null) : api(`${API}/wedding-suppliers`),
   ]);
   const houseStats = await statsRes.json();
@@ -857,7 +877,7 @@ function renderOverallView(houseStats) {
         <th>Category</th>
         <th class="num">Total</th>
         <th class="num">Paid</th>
-        <th class="num">Unpaid</th>
+        <th class="num">Balance</th>
       </tr></thead>
       <tbody>
         ${houseCats.map((c) => `
@@ -865,13 +885,13 @@ function renderOverallView(houseStats) {
             <td><span class="tag">${escapeHtml(c.category)}</span></td>
             <td class="num">${peso(c.total)}</td>
             <td class="num">${peso(c.paid)}</td>
-            <td class="num">${peso(c.unpaid)}</td>
+            <td class="num">${c.unpaid > 0 ? peso(c.unpaid) : '<span class="badge paid">✓</span>'}</td>
           </tr>`).join('')}
         <tr class="overall-total-row">
           <td><strong>Total</strong></td>
           <td class="num"><strong>${peso(h.total)}</strong></td>
           <td class="num"><strong>${peso(h.paid)}</strong></td>
-          <td class="num"><strong>${peso(h.unpaid)}</strong></td>
+          <td class="num"><strong>${h.unpaid > 0 ? peso(h.unpaid) : '<span class="badge paid">✓</span>'}</strong></td>
         </tr>
       </tbody>
     </table>`;

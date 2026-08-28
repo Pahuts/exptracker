@@ -136,6 +136,30 @@ main { max-width: 1200px; margin: 0 auto; padding: 24px 28px 60px; }
   padding: 18px 20px;
   box-shadow: var(--shadow);
 }
+.chart-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.chart-filter-bar label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.chart-filter-bar select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chart-filter-bar select:focus { outline: none; border-color: var(--primary); }
+
 .chart-card.wide { grid-column: 1 / -1; }
 .chart-card h3 { margin: 0 0 12px; font-size: 15px; }
 .chart-card canvas { max-height: 280px; }
@@ -248,6 +272,8 @@ td.actions { text-align: right; white-space: nowrap; }
 .w-card.w-balance { border-top-color: #dc2626; } .w-card.w-balance .value { color: #dc2626; }
 .w-card.w-gaile   { border-top-color: #7c3aed; } .w-card.w-gaile .value   { color: #7c3aed; }
 .w-card.w-nald    { border-top-color: #0891b2; } .w-card.w-nald .value    { color: #0891b2; }
+.w-budget-remaining { color: #16a34a !important; font-weight: 600; }
+.w-budget-remaining.over-budget { color: #dc2626 !important; }
 
 /* Category group cards */
 .w-groups { display: flex; flex-direction: column; gap: 18px; }

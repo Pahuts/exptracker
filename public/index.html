@@ -39,6 +39,12 @@
     <!-- Summary cards -->
     <section class="cards" id="cards"></section>
 
+    <!-- Chart year filter -->
+    <div class="chart-filter-bar">
+      <label for="chartYear">Year:</label>
+      <select id="chartYear"><option value="">All years</option></select>
+    </div>
+
     <!-- Charts -->
     <section class="charts">
       <div class="chart-card wide">
@@ -111,6 +117,10 @@
 
     <!-- ══ OVERALL VIEW ════════════════════════════════════════════════════ -->
     <div id="overall-view" class="hidden">
+      <div class="chart-filter-bar">
+        <label for="overallYear">Year:</label>
+        <select id="overallYear"><option value="">All years</option></select>
+      </div>
       <section class="cards" id="overallCards"></section>
       <section class="overall-breakdown">
         <div class="overall-col">

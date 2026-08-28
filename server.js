@@ -307,11 +307,18 @@ app.delete('/api/wedding-suppliers/:id', async (req, res) => {
 // --- STATS for dashboards --------------------------------------------------
 app.get('/api/stats', async (req, res) => {
   try {
-    const { scope } = req.query;
+    const { scope, year } = req.query;
     const scoped = scopeFilter(scope, 1);
-    const whereScope = scoped.clause ? `WHERE ${scoped.clause}` : '';
-    const monthlyScope = scoped.clause ? `AND ${scoped.clause}` : '';
-    const params = scoped.params;
+    const params = [...scoped.params];
+    const conditions = scoped.clause ? [scoped.clause] : [];
+
+    if (year && /^\d{4}$/.test(year)) {
+      conditions.push(`LEFT(date, 4) = $${params.length + 1}`);
+      params.push(year);
+    }
+
+    const whereScope  = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const monthlyScope = conditions.length ? `AND ${conditions.join(' AND ')}` : '';
 
     const totals = (
       await db.query(
